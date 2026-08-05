@@ -1,3 +1,4 @@
+"""
 Pikku's Birthday Web App — Complete RPG Sprite Edition
 =======================================================
 A guided 5-step Streamlit birthday experience featuring

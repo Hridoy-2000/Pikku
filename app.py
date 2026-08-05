@@ -1,685 +1,829 @@
-"""
-Pikku's Birthday Web App — Pokémon 2D RPG Sprite Edition
-===========================================================
-A 5-tab Streamlit birthday experience featuring an authentic Game Boy /
-Pokémon-style 2D sprite: drawn frame-by-frame on an HTML5 Canvas (no
-external image assets, so nothing can ever 404), scaled with
-`image-rendering: pixelated` for a crisp retro look, running a real
-30 FPS game loop. A classic RPG dialogue box types text out letter by
-letter with a blinking indicator arrow. CSS `steps()` keyframes drive
-the scrolling tiled ground and the arrow blink.
-
-Run with:
-    streamlit run app.py
-
-requirements.txt:
-    streamlit
-    requests
-"""
-
-import os
-import json
-
-import requests
 import streamlit as st
 import streamlit.components.v1 as components
+import time
+import random
+import base64
+from PIL import Image
+import io
 
-# ---------------------------------------------------------------------------
-# PAGE CONFIG
-# ---------------------------------------------------------------------------
+# Page configuration
 st.set_page_config(
-    page_title="Happy Birthday, Pikku! 🎀",
-    page_icon="🎂",
+    page_title="Happy Birthday Pikku! 🎂",
+    page_icon="🎉",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="collapsed"
 )
 
-# ---------------------------------------------------------------------------
-# ASSET PATHS — everything degrades safely to a placeholder if missing
-# ---------------------------------------------------------------------------
-ASSETS_DIR = "assets"
-BG_MUSIC_PATH = os.path.join(ASSETS_DIR, "bg_music.mp3")
-VIDEO_PATHS = [
-    os.path.join(ASSETS_DIR, "video1.mp4"),
-    os.path.join(ASSETS_DIR, "video2.mp4"),
-]
-POCKET_PHOTOS = [
-    {"path": os.path.join(ASSETS_DIR, "memory1.jpg"), "caption": "The day we first talked 💌"},
-    {"path": os.path.join(ASSETS_DIR, "memory2.jpg"), "caption": "That silly joke you made 😂"},
-    {"path": os.path.join(ASSETS_DIR, "memory3.jpg"), "caption": "The moment I knew 💗"},
-    {"path": os.path.join(ASSETS_DIR, "memory4.jpg"), "caption": "Us, always 🌸"},
-]
-
-GREETING_LINE = "Hi. Hey, I know your birthday is coming and you are very happy for that."
-
-# ---------------------------------------------------------------------------
-# SAFE HELPERS
-# ---------------------------------------------------------------------------
-def safe_audio(path: str) -> None:
-    if os.path.exists(path):
-        st.audio(path, format="audio/mp3")
-    else:
-        st.caption("🎵 Add your song at `assets/bg_music.mp3` to enable background music.")
-
-
-def safe_video(path: str, label: str) -> None:
-    if os.path.exists(path):
-        st.video(path)
-    else:
-        st.info(f"📹 Add a clip at `{path}` to show '{label}' here.")
-
-
-# ---------------------------------------------------------------------------
-# GLOBAL STREAMLIT CSS — pink gradient + glassmorphism (surrounds the game)
-# ---------------------------------------------------------------------------
-st.markdown(
-    """
-    <style>
+# Custom CSS for the entire app
+st.markdown("""
+<style>
+    /* Hide Streamlit default elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
     .stApp {
         background: linear-gradient(135deg, #ffdde1 0%, #ee9ca7 100%);
-        background-attachment: fixed;
     }
-    #MainMenu, header, footer {visibility: hidden;}
-    h1, h2, h3, h4 { color: #a14a5c !important; text-shadow: 0 2px 6px rgba(255,255,255,0.4); }
-    p, span, label, li { color: #7a3b47; }
-
+    
+    /* Glassmorphism cards */
     .glass-card {
         background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-radius: 22px;
-        border: 1.5px solid rgba(238, 156, 167, 0.55);
-        box-shadow: 0 8px 32px rgba(238, 156, 167, 0.35);
-        padding: 20px 24px;
-        margin-bottom: 20px;
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 30px;
+        margin: 20px 0;
+        border: 2px solid rgba(255, 182, 193, 0.3);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
     }
-    .glass-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(238, 156, 167, 0.5); }
-
+    
+    /* Custom button styling */
     .stButton > button {
-        background: linear-gradient(135deg, #ffb6c1 0%, #ee9ca7 100%);
-        color: #6b2c3a;
+        background: linear-gradient(45deg, #ff6b9d, #c44569);
+        color: white;
         border: none;
-        border-radius: 30px;
-        padding: 10px 22px;
-        font-weight: 700;
-        box-shadow: 0 4px 14px rgba(238, 156, 167, 0.5);
-        transition: transform 0.15s ease;
+        padding: 15px 30px;
+        border-radius: 50px;
+        font-size: 18px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
     }
-    .stButton > button:hover { transform: scale(1.05); color: #6b2c3a; }
-
-    .title-banner { text-align: center; padding: 10px 0 4px 0; }
-
-    @keyframes popIn {
-        0%   { transform: scale(0.05); opacity: 0; }
-        60%  { transform: scale(1.08); opacity: 1; }
-        100% { transform: scale(1); opacity: 1; }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 157, 0.5);
     }
-    .pocket-photo-new { animation: popIn 0.6s cubic-bezier(.2,.9,.3,1.3) forwards; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ---------------------------------------------------------------------------
-# THE RPG SCENE COMPONENT
-# ---------------------------------------------------------------------------
-# Plain (non f-string) template — the JS below is full of { } so an f-string
-# would require escaping every brace. We substitute placeholders with
-# .replace() instead, which keeps the JS readable.
-RPG_SCENE_TEMPLATE = r"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-  html, body {
-      margin: 0; padding: 0; background: transparent; overflow: hidden;
-      font-family: 'Courier New', monospace;
-  }
-
-  .scene-wrap {
-      position: relative;
-      width: __SCENE_W__px;
-      height: __SCENE_H__px;
-      margin: 0 auto;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 3px solid #7a4a3a;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-      background: linear-gradient(#bdeaff 0%, #bdeaff 55%, #7fc97f 55%, #7fc97f 100%);
-  }
-
-  /* Retro scrolling tile strip — classic CSS sprite-sheet steps() trick */
-  .ground-strip {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      height: 26px;
-      background-image: repeating-linear-gradient(
-          90deg,
-          #6ab86a 0px, #6ab86a 8px,
-          #5aa65a 8px, #5aa65a 16px
-      );
-      background-size: 32px 26px;
-      animation: groundScroll 0.8s steps(4) infinite;
-      opacity: 0.9;
-  }
-  @keyframes groundScroll {
-      from { background-position-x: 0px; }
-      to   { background-position-x: -32px; }
-  }
-
-  canvas#rpgCanvas {
-      position: absolute;
-      left: 50%; top: 8px;
-      transform: translateX(-50%);
-      image-rendering: pixelated;
-      image-rendering: -moz-crisp-edges;
-      image-rendering: crisp-edges;
-      width: __CANVAS_DISPLAY_W__px;
-      height: __CANVAS_DISPLAY_H__px;
-  }
-
-  /* ---- Classic GBA-style dialogue box ---- */
-  .dbox-wrap {
-      position: absolute;
-      left: 6px; right: 6px; bottom: 6px;
-      display: __DBOX_DISPLAY__;
-  }
-  .dbox {
-      background: #fff8ec;
-      border: 3px solid #2c2c54;
-      border-radius: 6px;
-      box-shadow: inset 0 0 0 2px #ffe9c7, 0 4px 10px rgba(0,0,0,0.3);
-      padding: 8px 30px 8px 10px;
-      min-height: 44px;
-      font-size: 13px;
-      line-height: 1.35;
-      color: #2c2c54;
-      position: relative;
-  }
-  .dbox-arrow {
-      position: absolute;
-      right: 10px; bottom: 6px;
-      width: 0; height: 0;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-top: 8px solid #2c2c54;
-      animation: arrowBlink 0.6s steps(1) infinite;
-  }
-  @keyframes arrowBlink {
-      0%, 49%   { opacity: 1; }
-      50%, 100% { opacity: 0; }
-  }
+    
+    /* Progress bar styling */
+    .progress-container {
+        margin: 20px 0;
+    }
 </style>
-</head>
-<body>
-  <div class="scene-wrap">
-    <canvas id="rpgCanvas" width="__CANVAS_W__" height="__CANVAS_H__"></canvas>
-    <div class="ground-strip"></div>
-    <div class="dbox-wrap">
-      <div class="dbox">
-        <span id="dboxText"></span>
-        <div class="dbox-arrow" id="dboxArrow" style="display:none;"></div>
-      </div>
-    </div>
-  </div>
+""", unsafe_allow_html=True)
 
-<script>
-(function () {
-  var canvas = document.getElementById('rpgCanvas');
-  var ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+# Initialize session state
+if 'step' not in st.session_state:
+    st.session_state.step = 1
+if 'animation_triggered' not in st.session_state:
+    st.session_state.animation_triggered = False
+if 'photo_revealed' not in st.session_state:
+    st.session_state.photo_revealed = False
+if 'finale_triggered' not in st.session_state:
+    st.session_state.finale_triggered = False
 
-  var W = canvas.width, H = canvas.height;
-  var GROUND_Y = H - 22;
-
-  var POSE = "__POSE__";
-  var SHOW_HEART = __SHOW_HEART__;
-  var DIALOGUE = __DIALOGUE_JSON__;   // array of strings, or null
-
-  // ---- palette ----
-  var C_HAIR = "#4a2c17";
-  var C_SKIN = "#ffd9b3";
-  var C_SHIRT = "#4f8ecb";
-  var C_SHIRT_DK = "#33618f";
-  var C_PANTS = "#333355";
-  var C_SHOE = "#22222a";
-  var C_EYE = "#2c2c54";
-  var C_MOUTH = "#a14a5c";
-  var C_POCKET = "#22314a";
-  var C_HEART = "#ff6f91";
-
-  var state = {
-      x: POSE === "walk" ? -20 : Math.round(W / 2),
-      targetX: Math.round(W / 2),
-      walking: POSE === "walk",
-      legPhase: 0,
-      tick: 0,
-      armWaveT: 0,
-      hopT: 0,
-      mouthOpen: false
-  };
-
-  function drawRect(x, y, w, h, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(Math.round(x), Math.round(y), w, h);
-  }
-
-  function drawArm(shoulderX, shoulderY, angleDeg, color) {
-      ctx.save();
-      ctx.translate(shoulderX, shoulderY);
-      ctx.rotate(angleDeg * Math.PI / 180);
-      ctx.fillStyle = color;
-      ctx.fillRect(-2, 0, 5, 15);
-      ctx.restore();
-  }
-
-  function drawBoy(ax, groundY, s) {
-      // ax, groundY = feet anchor (bottom-center)
-      var bob = 0;
-      if (POSE === "celebrate") {
-          bob = Math.sin(s.hopT) * 3;
-      } else if (!s.walking) {
-          bob = Math.sin(s.tick / 12) * 1.2;
-      }
-      var ay = groundY + bob;
-
-      // legs
-      var liftL = 0, liftR = 0;
-      if (s.walking) {
-          liftL = s.legPhase === 0 ? -3 : 0;
-          liftR = s.legPhase === 0 ? 0 : -3;
-      } else if (POSE === "celebrate") {
-          liftL = Math.sin(s.hopT) > 0 ? -2 : 0;
-          liftR = Math.sin(s.hopT) > 0 ? 0 : -2;
-      }
-      drawRect(ax - 7, ay - 16 + liftL, 6, 16, C_PANTS);
-      drawRect(ax - 7, ay - 3 + liftL, 6, 3, C_SHOE);
-      drawRect(ax + 1, ay - 16 + liftR, 6, 16, C_PANTS);
-      drawRect(ax + 1, ay - 3 + liftR, 6, 3, C_SHOE);
-
-      // body
-      drawRect(ax - 9, ay - 34, 18, 20, C_SHIRT);
-      drawRect(ax - 9, ay - 34, 18, 3, C_SHIRT_DK);
-
-      // pocket
-      drawRect(ax + 3, ay - 20, 5, 5, C_POCKET);
-
-      // arms
-      var armAngleL = 8, armAngleR = -8;
-      if (POSE === "talk") {
-          armAngleR = -60 + Math.sin(s.armWaveT) * 35;
-      } else if (POSE === "reach") {
-          armAngleR = 70;
-      } else if (POSE === "celebrate") {
-          armAngleL = 150 + Math.sin(s.hopT) * 10;
-          armAngleR = -150 - Math.sin(s.hopT) * 10;
-      } else if (s.walking) {
-          armAngleL = s.legPhase === 0 ? 30 : -20;
-          armAngleR = s.legPhase === 0 ? -20 : 30;
-      }
-      drawArm(ax - 9, ay - 32, armAngleL, C_SHIRT_DK);
-      drawArm(ax + 9, ay - 32, armAngleR, C_SHIRT_DK);
-
-      // head
-      drawRect(ax - 8, ay - 50, 16, 16, C_SKIN);
-      drawRect(ax - 9, ay - 54, 18, 6, C_HAIR);
-      drawRect(ax - 9, ay - 50, 3, 10, C_HAIR);
-      drawRect(ax + 6, ay - 50, 3, 10, C_HAIR);
-
-      // eyes
-      drawRect(ax - 5, ay - 42, 2, 2, C_EYE);
-      drawRect(ax + 3, ay - 42, 2, 2, C_EYE);
-
-      // mouth (toggles for talk)
-      var mouthH = (POSE === "talk" && s.mouthOpen) ? 3 : 1;
-      drawRect(ax - 3, ay - 37, 6, mouthH, C_MOUTH);
-
-      // floating heart
-      if (SHOW_HEART) {
-          var hy = ay - 66 - Math.sin(s.tick / 10) * 4;
-          var hx = ax + 12;
-          ctx.fillStyle = C_HEART;
-          ctx.fillRect(hx, hy, 3, 3);
-          ctx.fillRect(hx + 4, hy, 3, 3);
-          ctx.fillRect(hx - 1, hy + 3, 9, 3);
-          ctx.fillRect(hx + 1, hy + 6, 5, 2);
-      }
-  }
-
-  function drawBackground() {
-      ctx.clearRect(0, 0, W, H);
-  }
-
-  // ---- 30 FPS game loop ----
-  var FPS = 30;
-  function tick() {
-      state.tick++;
-      state.armWaveT += 0.35;
-      state.hopT += 0.28;
-
-      if (state.walking) {
-          state.x += 2.2;
-          if (state.tick % 4 === 0) state.legPhase = 1 - state.legPhase;
-          if (state.x >= state.targetX) {
-              state.x = state.targetX;
-              state.walking = false;
-          }
-      }
-      if (POSE === "talk" && state.tick % 5 === 0) {
-          state.mouthOpen = !state.mouthOpen;
-      }
-
-      drawBackground();
-      drawBoy(state.x, GROUND_Y, state);
-  }
-  setInterval(tick, 1000 / FPS);
-  tick();
-
-  // ---- Dialogue typing effect ----
-  if (DIALOGUE && DIALOGUE.length > 0) {
-      var lines = DIALOGUE;
-      var lineIdx = 0;
-      var textEl = document.getElementById('dboxText');
-      var arrowEl = document.getElementById('dboxArrow');
-
-      function typeLine(line) {
-          textEl.textContent = "";
-          arrowEl.style.display = "none";
-          var i = 0;
-          var speed = 28;
-          var timer = setInterval(function () {
-              textEl.textContent += line.charAt(i);
-              i++;
-              if (i >= line.length) {
-                  clearInterval(timer);
-                  arrowEl.style.display = "block";
-              }
-          }, speed);
-      }
-      typeLine(lines[0]);
-  }
-})();
-</script>
-</body>
-</html>
-"""
-
-
-def render_rpg_scene(
-    pose: str = "idle",
-    dialogue=None,
-    show_heart: bool = False,
-    scene_w: int = 420,
-    scene_h: int = 260,
-    canvas_w: int = 140,
-    canvas_h: int = 110,
-    scale: int = 3,
-) -> None:
-    """Render one frame of the Pokémon-style RPG scene inside an isolated
-    HTML5 Canvas component running a real 30 FPS game loop.
-
-    pose: "idle" | "walk" | "talk" | "reach" | "celebrate"
-    dialogue: list[str] or None — first line is typed out in the RPG text box
+def generate_html5_canvas(step, action="idle"):
+    """Generate HTML5 canvas with animated 2D sprites"""
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                background: transparent;
+            }}
+            #gameCanvas {{
+                background: transparent;
+                display: block;
+            }}
+            .speech-bubble {{
+                position: absolute;
+                top: 10%;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 20px 30px;
+                border: 3px solid #ffb6c1;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+                font-family: 'Comic Sans MS', cursive;
+                font-size: 18px;
+                color: #c44569;
+                display: none;
+                z-index: 100;
+                max-width: 400px;
+                text-align: center;
+            }}
+        </style>
+    </head>
+    <body>
+        <canvas id="gameCanvas"></canvas>
+        <div class="speech-bubble" id="speechBubble"></div>
+        
+        <script>
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const speechBubble = document.getElementById('speechBubble');
+            
+            // Set canvas size
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Animation state
+            let boyX = -100;
+            let boyY = canvas.height / 2 - 50;
+            let girlX = canvas.width + 100;
+            let girlY = canvas.height / 2 - 50;
+            let frameCount = 0;
+            let animationPhase = "{action}";
+            let photoScale = 0;
+            let photoY = canvas.height / 2;
+            let particles = [];
+            
+            // Character drawing functions
+            function drawBoy(x, y, frame, action) {{
+                ctx.save();
+                ctx.translate(x, y);
+                
+                // Body
+                ctx.fillStyle = '#4A90E2';
+                ctx.fillRect(15, 40, 30, 40);
+                
+                // Head
+                ctx.fillStyle = '#FFE0BD';
+                ctx.beginPath();
+                ctx.arc(30, 25, 20, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Hair
+                ctx.fillStyle = '#2C1810';
+                ctx.beginPath();
+                ctx.arc(30, 20, 20, Math.PI, 0);
+                ctx.fill();
+                
+                // Eyes
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(22, 25, 3, 0, Math.PI * 2);
+                ctx.arc(38, 25, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Mouth
+                if (action === 'talking') {{
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath();
+                    ctx.ellipse(30, 32, 4, 3, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }} else {{
+                    ctx.strokeStyle = '#000';
+                    ctx.beginPath();
+                    ctx.arc(30, 30, 5, 0, Math.PI);
+                    ctx.stroke();
+                }}
+                
+                // Arms
+                ctx.strokeStyle = '#FFE0BD';
+                ctx.lineWidth = 6;
+                if (action === 'waving') {{
+                    ctx.beginPath();
+                    ctx.moveTo(15, 45);
+                    ctx.lineTo(5, 20 + Math.sin(frameCount * 0.1) * 10);
+                    ctx.stroke();
+                }} else if (action === 'reaching') {{
+                    ctx.beginPath();
+                    ctx.moveTo(45, 45);
+                    ctx.lineTo(55, 35);
+                    ctx.stroke();
+                }} else {{
+                    ctx.beginPath();
+                    ctx.moveTo(15, 45);
+                    ctx.lineTo(5, 55);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(45, 45);
+                    ctx.lineTo(55, 55);
+                    ctx.stroke();
+                }}
+                
+                // Legs with walking animation
+                ctx.strokeStyle = '#2C1810';
+                ctx.lineWidth = 8;
+                if (action === 'walking') {{
+                    let legOffset = Math.sin(frameCount * 0.15) * 10;
+                    ctx.beginPath();
+                    ctx.moveTo(22, 80);
+                    ctx.lineTo(22 - legOffset, 110);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(38, 80);
+                    ctx.lineTo(38 + legOffset, 110);
+                    ctx.stroke();
+                }} else {{
+                    ctx.beginPath();
+                    ctx.moveTo(22, 80);
+                    ctx.lineTo(22, 110);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(38, 80);
+                    ctx.lineTo(38, 110);
+                    ctx.stroke();
+                }}
+                
+                // Shoes
+                ctx.fillStyle = '#333';
+                ctx.fillRect(12, 110, 20, 10);
+                ctx.fillRect(28, 110, 20, 10);
+                
+                ctx.restore();
+            }}
+            
+            function drawGirl(x, y, frame, action) {{
+                ctx.save();
+                ctx.translate(x, y);
+                
+                // Body
+                ctx.fillStyle = '#FF69B4';
+                ctx.fillRect(15, 40, 30, 40);
+                
+                // Head
+                ctx.fillStyle = '#FFE0BD';
+                ctx.beginPath();
+                ctx.arc(30, 25, 20, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Hair
+                ctx.fillStyle = '#8B4513';
+                ctx.beginPath();
+                ctx.arc(30, 20, 20, Math.PI, 0);
+                ctx.fill();
+                // Ponytails
+                ctx.beginPath();
+                ctx.arc(12, 20, 8, 0, Math.PI * 2);
+                ctx.arc(48, 20, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eyes
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(22, 25, 3, 0, Math.PI * 2);
+                ctx.arc(38, 25, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eyelashes
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(19, 22);
+                ctx.lineTo(17, 20);
+                ctx.moveTo(25, 22);
+                ctx.lineTo(24, 20);
+                ctx.moveTo(35, 22);
+                ctx.lineTo(34, 20);
+                ctx.moveTo(41, 22);
+                ctx.lineTo(43, 20);
+                ctx.stroke();
+                
+                // Mouth
+                ctx.fillStyle = '#FF6B9D';
+                ctx.beginPath();
+                ctx.arc(30, 32, 3, 0, Math.PI);
+                ctx.fill();
+                
+                // Arms
+                ctx.strokeStyle = '#FFE0BD';
+                ctx.lineWidth = 6;
+                if (action === 'hugging') {{
+                    ctx.beginPath();
+                    ctx.moveTo(15, 45);
+                    ctx.lineTo(-10, 40);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(45, 45);
+                    ctx.lineTo(70, 40);
+                    ctx.stroke();
+                }} else {{
+                    ctx.beginPath();
+                    ctx.moveTo(15, 45);
+                    ctx.lineTo(5, 55);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(45, 45);
+                    ctx.lineTo(55, 55);
+                    ctx.stroke();
+                }}
+                
+                // Dress
+                ctx.fillStyle = '#FF69B4';
+                ctx.beginPath();
+                ctx.moveTo(15, 80);
+                ctx.lineTo(45, 80);
+                ctx.lineTo(55, 110);
+                ctx.lineTo(5, 110);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Legs
+                ctx.strokeStyle = '#FFE0BD';
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(22, 80);
+                ctx.lineTo(22, 110);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(38, 80);
+                ctx.lineTo(38, 110);
+                ctx.stroke();
+                
+                ctx.restore();
+            }}
+            
+            function createParticle(x, y) {{
+                return {{
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: Math.random() * -8 - 2,
+                    life: 1,
+                    color: `hsl(${{Math.random() * 60 + 300}}, 100%, 75%)`,
+                    size: Math.random() * 4 + 2
+                }};
+            }}
+            
+            function updateParticles() {{
+                for (let i = particles.length - 1; i >= 0; i--) {{
+                    let p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.1;
+                    p.life -= 0.02;
+                    
+                    if (p.life <= 0) {{
+                        particles.splice(i, 1);
+                    }}
+                }}
+            }}
+            
+            function drawParticles() {{
+                particles.forEach(p => {{
+                    ctx.save();
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }});
+            }}
+            
+            function drawPhoto(x, y, scale) {{
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.scale(scale, scale);
+                
+                // Photo frame
+                ctx.fillStyle = '#FFF';
+                ctx.fillRect(-50, -70, 100, 140);
+                ctx.strokeStyle = '#FF69B4';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(-50, -70, 100, 140);
+                
+                // Photo content (placeholder heart)
+                ctx.fillStyle = '#FF6B9D';
+                ctx.beginPath();
+                let heartX = 0;
+                let heartY = -10;
+                ctx.moveTo(heartX, heartY);
+                ctx.bezierCurveTo(heartX - 20, heartY - 20, heartX - 30, heartY + 10, heartX, heartY + 30);
+                ctx.bezierCurveTo(heartX + 30, heartY + 10, heartX + 20, heartY - 20, heartX, heartY);
+                ctx.fill();
+                
+                // "Memory" text
+                ctx.fillStyle = '#C44569';
+                ctx.font = '12px Comic Sans MS';
+                ctx.textAlign = 'center';
+                ctx.fillText('Memory ❤️', 0, 50);
+                
+                ctx.restore();
+            }}
+            
+            // Animation loop
+            function animate() {{
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                frameCount++;
+                
+                // Draw gradient background
+                let gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, '#ffdde1');
+                gradient.addColorStop(1, '#ee9ca7');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw decorative elements
+                for (let i = 0; i < 10; i++) {{
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(Math.sin(frameCount * 0.02 + i) * 100 + canvas.width/2, 
+                           Math.cos(frameCount * 0.02 + i) * 100 + canvas.height/2, 
+                           5, 0, Math.PI * 2);
+                    ctx.fill();
+                }}
+                
+                // Animation logic based on phase
+                switch(animationPhase) {{
+                    case 'walking_in':
+                        boyX += 2;
+                        if (boyX >= canvas.width / 2 - 30) {{
+                            boyX = canvas.width / 2 - 30;
+                            animationPhase = 'idle';
+                            // Notify Streamlit
+                            window.parent.postMessage({{type: 'animation_complete', phase: 'walking_in'}}, '*');
+                        }}
+                        drawBoy(boyX, boyY, frameCount, 'walking');
+                        break;
+                        
+                    case 'idle':
+                        drawBoy(canvas.width / 2 - 30, boyY, frameCount, 'idle');
+                        break;
+                        
+                    case 'talking':
+                        drawBoy(canvas.width / 2 - 30, boyY, frameCount, 'talking');
+                        speechBubble.style.display = 'block';
+                        speechBubble.textContent = document.getElementById('dialogueText')?.value || '';
+                        break;
+                        
+                    case 'reaching_pocket':
+                        boyX = canvas.width / 2 - 50;
+                        drawBoy(boyX, boyY, frameCount, 'reaching');
+                        break;
+                        
+                    case 'photo_reveal':
+                        drawBoy(canvas.width / 2 - 80, boyY, frameCount, 'idle');
+                        if (photoScale < 1) {{
+                            photoScale += 0.02;
+                            photoY -= 2;
+                        }}
+                        drawPhoto(canvas.width / 2 + 50, photoY, photoScale);
+                        
+                        // Add celebration particles
+                        if (Math.random() < 0.3) {{
+                            particles.push(createParticle(canvas.width / 2, canvas.height / 2));
+                        }}
+                        break;
+                        
+                    case 'double_entry':
+                        if (boyX < canvas.width / 3) boyX += 2;
+                        if (girlX > canvas.width * 2/3) girlX -= 2;
+                        drawBoy(boyX, boyY, frameCount, 'walking');
+                        drawGirl(girlX, girlY, frameCount, 'walking');
+                        
+                        if (boyX >= canvas.width / 3 && girlX <= canvas.width * 2/3) {{
+                            animationPhase = 'approaching';
+                        }}
+                        break;
+                        
+                    case 'approaching':
+                        if (boyX < canvas.width / 2 - 30) boyX += 1.5;
+                        if (girlX > canvas.width / 2 + 30) girlX -= 1.5;
+                        drawBoy(boyX, boyY, frameCount, 'walking');
+                        drawGirl(girlX, girlY, frameCount, 'walking');
+                        
+                        if (boyX >= canvas.width / 2 - 30 && girlX <= canvas.width / 2 + 30) {{
+                            animationPhase = 'hugging';
+                        }}
+                        break;
+                        
+                    case 'hugging':
+                        drawBoy(boyX, boyY, frameCount, 'idle');
+                        drawGirl(girlX, girlY, frameCount, 'hugging');
+                        
+                        // Heart particles
+                        if (Math.random() < 0.5) {{
+                            let midX = (boyX + girlX) / 2;
+                            let midY = boyY;
+                            particles.push(createParticle(midX, midY));
+                        }}
+                        
+                        speechBubble.style.display = 'block';
+                        speechBubble.textContent = document.getElementById('finalMessage')?.textContent || '';
+                        break;
+                }}
+                
+                updateParticles();
+                drawParticles();
+                
+                requestAnimationFrame(animate);
+            }}
+            
+            // Start animation
+            animate();
+            
+            // Handle messages from Streamlit
+            window.addEventListener('message', function(event) {{
+                if (event.data.type === 'set_phase') {{
+                    animationPhase = event.data.phase;
+                }}
+                if (event.data.type === 'set_dialogue') {{
+                    let dialogueEl = document.getElementById('dialogueText');
+                    if (!dialogueEl) {{
+                        dialogueEl = document.createElement('input');
+                        dialogueEl.type = 'hidden';
+                        dialogueEl.id = 'dialogueText';
+                        document.body.appendChild(dialogueEl);
+                    }}
+                    dialogueEl.value = event.data.text;
+                }}
+            }});
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {{
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }});
+        </script>
+    </body>
+    </html>
     """
-    if isinstance(dialogue, str):
-        dialogue = [dialogue]
+    
+    return html_content
 
-    html = (
-        RPG_SCENE_TEMPLATE
-        .replace("__SCENE_W__", str(scene_w))
-        .replace("__SCENE_H__", str(scene_h))
-        .replace("__CANVAS_W__", str(canvas_w))
-        .replace("__CANVAS_H__", str(canvas_h))
-        .replace("__CANVAS_DISPLAY_W__", str(canvas_w * scale))
-        .replace("__CANVAS_DISPLAY_H__", str(canvas_h * scale))
-        .replace("__POSE__", pose)
-        .replace("__SHOW_HEART__", "true" if show_heart else "false")
-        .replace("__DIALOGUE_JSON__", json.dumps(dialogue) if dialogue else "null")
-        .replace("__DBOX_DISPLAY__", "block" if dialogue else "none")
-    )
-    components.html(html, height=scene_h + 10, scrolling=False)
+# Main app header
+st.markdown("""
+<div style="text-align: center; padding: 50px 0;">
+    <h1 style="color: #c44569; font-size: 48px; margin-bottom: 10px;">
+        🎂 Happy Birthday Pikku! 🎉
+    </h1>
+    <p style="color: #ff6b9d; font-size: 20px;">
+        A magical journey just for you 💖
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-
-# ---------------------------------------------------------------------------
-# SESSION STATE
-# ---------------------------------------------------------------------------
-if "dialogue_stage" not in st.session_state:
-    st.session_state.dialogue_stage = "idle"   # idle -> greet -> yes/more -> end
-if "pocket_revealed" not in st.session_state:
-    st.session_state.pocket_revealed = []
-if "just_revealed" not in st.session_state:
-    st.session_state.just_revealed = False
-
-# ---------------------------------------------------------------------------
-# HEADER + TABS
-# ---------------------------------------------------------------------------
-st.markdown(
-    '<div class="title-banner"><h1>🎀 Happy Birthday, Pikku! 🎂</h1></div>',
-    unsafe_allow_html=True,
-)
-
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["💬 Meet Him", "📖 His Story", "🎁 Pocket Surprise", "🎬 Cute Videos", "🧸 Thank You"]
-)
-
-# ---------------------------------------------------------------------------
-# TAB 1 — 2D Pokémon RPG Intro
-# ---------------------------------------------------------------------------
-with tab1:
-    st.markdown("### He walks into the scene, just for you...")
-    safe_audio(BG_MUSIC_PATH)
-
-    stage = st.session_state.dialogue_stage
-
-    if stage == "idle":
-        render_rpg_scene(pose="walk", dialogue=["...", "Click below to talk to him!"])
-    elif stage == "greet":
-        render_rpg_scene(pose="talk", dialogue=[GREETING_LINE])
-    elif stage == "yes":
-        render_rpg_scene(
-            pose="celebrate",
-            show_heart=True,
-            dialogue=["Yay! I'm so glad. 🎉 This is going to be the best birthday yet."],
-        )
-    elif stage == "more":
-        render_rpg_scene(
-            pose="talk",
-            dialogue=["Well... I've been planning a few little surprises for you. Check the other tabs. 👀"],
-        )
-
-    st.write("")
-    col1, col2, col3 = st.columns([1, 1, 1])
-
-    if stage == "idle":
-        with col1:
-            if st.button("💬 Talk to him", use_container_width=True):
-                st.session_state.dialogue_stage = "greet"
-                st.rerun()
-
-    elif stage == "greet":
-        with col1:
-            if st.button("Yes! 💗", use_container_width=True):
-                st.session_state.dialogue_stage = "yes"
-                st.rerun()
-        with col2:
-            if st.button("Tell me more!", use_container_width=True):
-                st.session_state.dialogue_stage = "more"
-                st.rerun()
-
-    else:
-        with col1:
-            if st.button("🔄 Restart", use_container_width=True):
-                st.session_state.dialogue_stage = "idle"
-                st.rerun()
-
-# ---------------------------------------------------------------------------
-# TAB 2 — Interactive Story Scenes
-# ---------------------------------------------------------------------------
-with tab2:
-    st.markdown("### Our little story, told through him 📖")
-
-    story_days = [
-        ("Day 1", "The Arrival", "walk", False,
-         "He walks in, a little nervous, and introduces himself for the first time."),
-        ("Day 2", "The Gesture", "talk", True,
-         "He shows up with a small gesture — nothing big, just something from the heart."),
-        ("Day 3", "Getting Closer", "talk", False,
-         "He shares a memory that means a lot to him, hoping it means something to you too."),
-        ("Day 4", "Forever", "celebrate", True,
-         "He's celebrating right beside you — because forever starts with days like this."),
-    ]
-
-    row1 = st.columns(2)
-    row2 = st.columns(2)
-    positions = row1 + row2
-
-    for col, (day, title, pose, heart, desc) in zip(positions, story_days):
-        with col:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown(
-                f'<h4 style="text-align:center;margin:0;">{day}</h4>'
-                f'<h3 style="text-align:center;margin:0 0 6px 0;">{title}</h3>',
-                unsafe_allow_html=True,
-            )
-            render_rpg_scene(
-                pose=pose, show_heart=heart,
-                scene_w=320, scene_h=200, canvas_w=110, canvas_h=90, scale=2,
-            )
-            st.markdown(
-                f'<p style="text-align:center;font-size:14px;">{desc}</p>',
-                unsafe_allow_html=True,
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-
-# ---------------------------------------------------------------------------
-# TAB 3 — Interactive Pocket-Photo Reveal (Game Mechanic)
-# ---------------------------------------------------------------------------
-with tab3:
-    st.markdown("### He's got something hidden in his pocket 🎁")
-    st.caption("Click the button and watch him pull out a memory...")
-
-    revealed = st.session_state.pocket_revealed
-    next_index = len(revealed)
-    all_revealed = next_index >= len(POCKET_PHOTOS)
-
-    pose = "reach" if not all_revealed else "celebrate"
-    dlg = (
-        ["He reaches into his pocket..."] if not all_revealed
-        else ["That's everything he had in there. 💗"]
-    )
-    render_rpg_scene(pose=pose, show_heart=all_revealed, dialogue=dlg)
-
-    st.write("")
-    btn_col, _ = st.columns([1, 2])
-    with btn_col:
-        if not all_revealed:
-            if st.button("🎁 Pull photo from pocket", use_container_width=True):
-                st.session_state.pocket_revealed.append(next_index)
-                st.session_state.just_revealed = True
-                st.rerun()
-        else:
-            st.button("✨ All memories found!", use_container_width=True, disabled=True)
-
-    if st.session_state.just_revealed:
-        st.balloons()
-        st.session_state.just_revealed = False
-
-    if revealed:
-        st.write("")
-        st.markdown("#### Revealed memories")
-
-        # Newest photo gets a big, prominent "expanding" reveal card.
-        newest_idx = revealed[-1]
-        newest = POCKET_PHOTOS[newest_idx]
-        st.markdown('<div class="pocket-photo-new">', unsafe_allow_html=True)
-        if os.path.exists(newest["path"]):
-            st.image(newest["path"], caption=newest["caption"], use_container_width=True)
-        else:
-            st.markdown(
-                f"""
-                <div class="glass-card" style="text-align:center;">
-                    <div style="font-size:64px;">🌸</div>
-                    <p style="font-weight:600;font-size:18px;">{newest['caption']}</p>
-                    <p style="font-size:12px;color:#c98a97;">(add photo at {newest['path']})</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        if len(revealed) > 1:
-            st.caption("Earlier finds:")
-            older_cols = st.columns(3)
-            for pos, idx in enumerate(revealed[:-1]):
-                memory = POCKET_PHOTOS[idx]
-                with older_cols[pos % 3]:
-                    if os.path.exists(memory["path"]):
-                        st.image(memory["path"], caption=memory["caption"], use_container_width=True)
-                    else:
-                        st.markdown(
-                            f"""
-                            <div class="glass-card" style="text-align:center;padding:12px;">
-                                <div style="font-size:34px;">🌸</div>
-                                <p style="font-size:12px;font-weight:600;">{memory['caption']}</p>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-    else:
-        st.markdown(
-            """
-            <div class="glass-card" style="text-align:center;">
-                <div style="font-size:46px;">🤫</div>
-                <p>His pocket is still full of secrets... go on, ask him.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-# ---------------------------------------------------------------------------
-# TAB 4 — Cute Videos
-# ---------------------------------------------------------------------------
-with tab4:
-    st.markdown("### A few cute clips, just for you 🎬")
-
-    vid_cols = st.columns(2)
-    labels = ["Cute Clip 1", "Cute Clip 2"]
-    for col, path, label in zip(vid_cols, VIDEO_PATHS, labels):
-        with col:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown(f"**{label}**")
-            safe_video(path, label)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-# ---------------------------------------------------------------------------
-# TAB 5 — Thank You & Finale
-# ---------------------------------------------------------------------------
-with tab5:
-    st.markdown(
-        '<h2 style="text-align:center;">Thank you for being you, Pikku 🧸</h2>',
-        unsafe_allow_html=True,
-    )
-
-    render_rpg_scene(
-        pose="celebrate",
-        show_heart=True,
-        dialogue=["Happy Birthday, Pikku! 🎂"],
-    )
-
-    if st.button("🎉 Celebrate!", use_container_width=True):
-        st.balloons()
-
-    st.markdown(
-        """
-        <div class="glass-card" style="text-align:center; margin-top:10px;">
-            <p style="font-size:18px; font-weight:600;">
-                Happy Birthday, Pikku! 🎂<br>
-                May this year bring you as much joy as you bring into everyone else's life.
-                Here's to more days, more stories, and more reasons to smile together. 💗
-            </p>
+# Progress indicator
+progress_percentage = min((st.session_state.step - 1) * 25, 100)
+st.markdown(f"""
+<div class="progress-container">
+    <div style="background: rgba(255,255,255,0.5); border-radius: 20px; height: 20px; margin: 0 50px;">
+        <div style="background: linear-gradient(90deg, #ff6b9d, #c44569); width: {progress_percentage}%; 
+                    height: 100%; border-radius: 20px; transition: width 0.5s ease;">
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    </div>
+    <p style="text-align: center; color: #c44569; margin-top: 10px;">Step {st.session_state.step} of 5</p>
+</div>
+""", unsafe_allow_html=True)
+
+# STEP 1: Boy Entrance & Greeting
+if st.session_state.step == 1:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        # Display HTML5 canvas with walking animation
+        if not st.session_state.animation_triggered:
+            components.html(generate_html5_canvas(1, "walking_in"), height=400)
+            st.session_state.animation_triggered = True
+        else:
+            components.html(generate_html5_canvas(1, "talking"), height=400)
+    
+    with col2:
+        st.markdown("""
+        <div style="text-align: center; padding-top: 50px;">
+            <h3 style="color: #c44569;">👋 A Special Visitor</h3>
+            <p style="color: #666;">Someone wants to talk to you...</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("💬 Talk to him / बात सुनो", key="talk_button", use_container_width=True):
+            st.session_state.talking_started = True
+            # Trigger talking animation
+            dialogue_html = f"""
+            <script>
+                window.parent.postMessage({{type: 'set_phase', phase: 'talking'}}, '*');
+                window.parent.postMessage({{type: 'set_dialogue', text: "Hi! Hey, I know your birthday is coming and you are very happy for that! 😊"}}, '*');
+            </script>
+            """
+            components.html(dialogue_html, height=0)
+            
+            # Show speech bubble text
+            st.markdown("""
+            <div style="text-align: center; padding: 20px;">
+                <div style="background: rgba(255,255,255,0.95); padding: 20px; border-radius: 20px; 
+                            border: 3px solid #ffb6c1; display: inline-block; margin: 20px;">
+                    <p style="font-size: 20px; color: #c44569; margin: 0;">
+                        "Hi! Hey, I know your birthday is coming and you are very happy for that! 😊"
+                    </p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Next step button
+            if st.button("Next Step ➡️", key="next_step_1", use_container_width=True):
+                st.session_state.step = 2
+                st.session_state.animation_triggered = False
+                st.session_state.photo_revealed = False
+                st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# STEP 2: Interactive Story Milestones
+elif st.session_state.step == 2:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("""
+    <h2 style="text-align: center; color: #c44569;">📖 Our Beautiful Memories</h2>
+    """, unsafe_allow_html=True)
+    
+    # Story cards with animations
+    memories = [
+        {"title": "The First Hello 👋", "description": "Remember when we first met? That magical moment when our eyes met and everything changed forever...", "emoji": "✨"},
+        {"title": "Laughter & Joy 😄", "description": "All those times we laughed until our stomachs hurt, creating memories that will last a lifetime.", "emoji": "💫"},
+        {"title": "Adventures Together 🌟", "description": "Every adventure became special because you were there. From simple walks to grand journeys, you made everything better.", "emoji": "🌈"},
+        {"title": "Birthday Magic 🎂", "description": "And now here we are, celebrating YOU - the most amazing person who deserves all the happiness in the world!", "emoji": "💝"}
+    ]
+    
+    for i, memory in enumerate(memories):
+        with st.container():
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                st.markdown(f"""
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 50px;">{memory['emoji']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div style="padding: 15px; background: rgba(255,255,255,0.5); border-radius: 15px; margin: 10px 0;">
+                    <h3 style="color: #c44569;">{memory['title']}</h3>
+                    <p style="color: #666;">{memory['description']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("Next Step ➡️", key="next_step_2", use_container_width=True):
+            st.session_state.step = 3
+            st.session_state.animation_triggered = False
+            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# STEP 3: Pocket Photo Reveal
+elif st.session_state.step == 3:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("""
+    <h2 style="text-align: center; color: #c44569;">🎁 A Special Surprise</h2>
+    """, unsafe_allow_html=True)
+    
+    # Display canvas with reaching animation
+    if not st.session_state.photo_revealed:
+        components.html(generate_html5_canvas(3, "reaching_pocket"), height=400)
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("""
+            <div style="text-align: center; padding: 20px;">
+                <p style="color: #666; font-size: 18px;">
+                    He's reaching into his pocket... What could it be? 🤔
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button("🎁 Pull photo from pocket", key="pull_photo", use_container_width=True):
+                st.session_state.photo_revealed = True
+                st.balloons()
+                st.rerun()
+    else:
+        # Photo reveal animation
+        components.html(generate_html5_canvas(3, "photo_reveal"), height=500)
+        
+        st.markdown("""
+        <div style="text-align: center; padding: 20px;">
+            <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; 
+                        border: 3px solid #ffb6c1; display: inline-block; margin: 20px; 
+                        box-shadow: 0 10px 30px rgba(255,107,157,0.2);">
+                <h2 style="color: #c44569;">📸 A Precious Memory</h2>
+                <div style="font-size: 100px; padding: 20px;">💖</div>
+                <p style="color: #666; font-size: 18px;">Every moment with you is worth cherishing forever!</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("Next Step ➡️", key="next_step_3", use_container_width=True):
+                st.session_state.step = 4
+                st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# STEP 4: Video Showcase
+elif st.session_state.step == 4:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("""
+    <h2 style="text-align: center; color: #c44569;">🎬 Special Video Messages</h2>
+    """, unsafe_allow_html=True)
+    
+    # Video placeholder with beautiful design
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        st.markdown("""
+        <div style="background: rgba(0,0,0,0.05); border-radius: 20px; padding: 40px; 
+                    text-align: center; min-height: 300px; display: flex; 
+                    align-items: center; justify-content: center; flex-direction: column;">
+            <div style="font-size: 80px;">🎥</div>
+            <h3 style="color: #c44569; margin-top: 20px;">Your Birthday Video</h3>
+            <p style="color: #666;">A special message from the heart 💝</p>
+            <div style="margin-top: 20px;">
+                <button style="background: linear-gradient(45deg, #ff6b9d, #c44569); 
+                               color: white; border: none; padding: 15px 30px; 
+                               border-radius: 50px; font-size: 18px; cursor: pointer;">
+                    ▶️ Play Video
+                </button>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("Reveal Final Surprise 💖 ➡️", key="reveal_finale", use_container_width=True):
+            st.session_state.step = 5
+            st.session_state.animation_triggered = False
+            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# STEP 5: Final Finale Scene
+elif st.session_state.step == 5:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    
+    if not st.session_state.finale_triggered:
+        # Double character entry animation
+        components.html(generate_html5_canvas(5, "double_entry"), height=500)
+        
+        st.markdown("""
+        <div style="text-align: center; padding: 20px;">
+            <h2 style="color: #c44569;">💕 The Grand Finale</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        time.sleep(3)  # Wait for animation
+        
+        # Trigger hugging animation
+        components.html(generate_html5_canvas(5, "approaching"), height=500)
+        time.sleep(2)
+        
+        st.session_state.finale_triggered = True
+        st.balloons()
+        st.snow()
+        st.rerun()
+    
+    else:
+        # Final hugging scene with message
+        components.html(generate_html5_canvas(5, "hugging"), height=500)
+        
+        st.markdown("""
+        <div style="text-align: center; padding: 30px;">
+            <div style="background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,220,220,0.95)); 
+                        padding: 40px; border-radius: 30px; border: 3px solid #ffb6c1; 
+                        box-shadow: 0 15px 40px rgba(255,107,157,0.3);
+                        animation: glow 2s ease-in-out infinite alternate;">
+                <h1 style="color: #c44569; font-size: 36px; margin-bottom: 20px;">
+                    💖 Happy Birthday Pikku! 💖
+                </h1>
+                <p style="color: #666; font-size: 24px; line-height: 1.5;">
+                    "Thank you for being my favorite person<br>
+                    in the entire universe!<br>
+                    Happy Birthday! 🎉💖"
+                </p>
+                <div style="font-size: 60px; margin-top: 20px;">
+                    🎂 🎈 🎁 🎊 ✨
+                </div>
+            </div>
+        </div>
+        
+        <style>
+            @keyframes glow {{
+                from {{ box-shadow: 0 0 20px rgba(255,107,157,0.3); }}
+                to {{ box-shadow: 0 0 40px rgba(255,107,157,0.6); }}
+            }}
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Additional celebration effects
+        if st.button("🎉 Celebrate Again! 🎉", key="celebrate_again", use_container_width=True):
+            st.balloons()
+            st.snow()
+            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Footer
+st.markdown("""
+<div style="text-align: center; padding: 30px; color: rgba(255,255,255,0.7);">
+    <p>Made with 💖 specially for Pikku</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Auto-play background music (optional)
+st.markdown("""
+<script>
+    // Background music can be added here if needed
+    console.log('🎵 Happy Birthday Pikku! 🎵');
+</script>
+""", unsafe_allow_html=True)

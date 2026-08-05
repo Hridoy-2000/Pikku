@@ -1,43 +1,16 @@
-Here's the **COMPLETE, SUPER PROFESSIONAL** `app.py` with all animations, both characters, and full comments:
-
-```python
 """
 ╔══════════════════════════════════════════════════════════════╗
 ║           PIKKU'S BIRTHDAY WEB APP v2.0                      ║
 ║           Professional 2D RPG Animation Engine               ║
 ║           Streamlit + HTML5 Canvas + 30 FPS Game Loop        ║
 ╚══════════════════════════════════════════════════════════════╝
-
-Author: Birthday App Team
-Version: 2.0.0
-Description: A guided 4-step interactive birthday experience
-             featuring hand-coded 2D RPG character animations
-             rendered on HTML5 Canvas at 30 FPS.
-
-Features:
-  • Step 1: Boy character walks in and talks
-  • Step 2: Interactive pocket photo reveal game
-  • Step 3: Video showcase gallery
-  • Step 4: Boy & Girl couple finale (hug + kiss)
-  
-Architecture:
-  • Frontend: Streamlit (Python)
-  • Animation: HTML5 Canvas (JavaScript)
-  • Game Loop: 30 FPS requestAnimationFrame-style interval
-  • Assets: All characters are code-drawn (no external images)
 """
 
-# ===========================================================================
-# STANDARD LIBRARY IMPORTS
-# ===========================================================================
 import os
 import json
 import base64
 from typing import Optional, List, Dict, Any
 
-# ===========================================================================
-# THIRD-PARTY IMPORTS
-# ===========================================================================
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -49,29 +22,20 @@ st.set_page_config(
     page_icon="🎂",
     layout="wide",
     initial_sidebar_state="collapsed",
-    menu_items={
-        "Get Help": None,
-        "Report a bug": None,
-        "About": "A special birthday surprise for Pikku! 💝",
-    },
 )
 
 # ===========================================================================
 # CONSTANTS & CONFIGURATION
 # ===========================================================================
-
-# Asset directory - create if doesn't exist
 ASSETS_DIR: str = "assets"
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
-# File paths for optional media
 BG_MUSIC_PATH: str = os.path.join(ASSETS_DIR, "bg_music.mp3")
 VIDEO_PATHS: List[str] = [
     os.path.join(ASSETS_DIR, "video1.mp4"),
     os.path.join(ASSETS_DIR, "video2.mp4"),
 ]
 
-# Memory photos configuration
 POCKET_PHOTOS: List[Dict[str, str]] = [
     {"path": os.path.join(ASSETS_DIR, "memory1.jpg"), "caption": "The day we first talked 💌"},
     {"path": os.path.join(ASSETS_DIR, "memory2.jpg"), "caption": "That silly joke you made 😂"},
@@ -79,44 +43,22 @@ POCKET_PHOTOS: List[Dict[str, str]] = [
     {"path": os.path.join(ASSETS_DIR, "memory4.jpg"), "caption": "Us, always 🌸"},
 ]
 
-# Dialogue constants
-GREETING_LINE: str = (
-    "Hi. Hey, I know your birthday is coming "
-    "and you are very happy for that."
-)
+GREETING_LINE: str = "Hi. Hey, I know your birthday is coming and you are very happy for that."
 
-FINAL_MESSAGE: str = (
-    "Thank you for being my favorite person "
-    "in the entire universe! Happy Birthday! 🎉💖"
-)
-
-# Canvas dimensions
 CANVAS_WIDTH: int = 420
 CANVAS_HEIGHT: int = 260
-SCENE_HEIGHT: int = 280  # Component height in Streamlit
+SCENE_HEIGHT: int = 280
 
 
 # ===========================================================================
 # UTILITY FUNCTIONS
 # ===========================================================================
-
 def safe_audio(path: str) -> None:
-    """
-    Safely load and play background music.
-    Falls back gracefully if file doesn't exist or is invalid.
-    """
     if os.path.exists(path):
         try:
             with open(path, "rb") as f:
                 audio_base64: str = base64.b64encode(f.read()).decode()
-            st.markdown(
-                f"""
-                <audio autoplay loop style="display:none;">
-                    <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
-                </audio>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.markdown(f'<audio autoplay loop style="display:none;"><source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3"></audio>', unsafe_allow_html=True)
             st.caption("🎵 Background music is playing...")
         except Exception:
             st.caption("🎵 Add a valid MP3 file to assets/bg_music.mp3")
@@ -125,10 +67,6 @@ def safe_audio(path: str) -> None:
 
 
 def safe_video(path: str, label: str) -> None:
-    """
-    Safely load and display a video file.
-    Shows an info message if the file is missing or invalid.
-    """
     if os.path.exists(path):
         try:
             st.video(path)
@@ -138,22 +76,10 @@ def safe_video(path: str, label: str) -> None:
         st.info(f"📹 Place your video at: {path}")
 
 
-def safe_image(
-    path: str,
-    caption: str = "",
-    use_container_width: bool = True
-) -> None:
-    """
-    Safely load and display an image file.
-    Renders a beautiful placeholder card if the image is missing.
-    """
+def safe_image(path: str, caption: str = "", use_container_width: bool = True) -> None:
     if os.path.exists(path):
         try:
-            st.image(
-                path,
-                caption=caption,
-                use_container_width=use_container_width,
-            )
+            st.image(path, caption=caption, use_container_width=use_container_width)
         except Exception:
             _render_image_placeholder(caption)
     else:
@@ -161,27 +87,7 @@ def safe_image(
 
 
 def _render_image_placeholder(caption: str) -> None:
-    """Render a decorative placeholder when an image is missing."""
-    st.markdown(
-        f"""
-        <div style="
-            text-align:center;
-            padding:30px;
-            background:rgba(255,255,255,0.9);
-            border-radius:20px;
-            border:2px dashed #ffb6c1;
-        ">
-            <div style="font-size:64px;">🌸</div>
-            <p style="font-weight:600;font-size:16px;color:#c44569;">
-                {caption}
-            </p>
-            <p style="font-size:12px;color:#c98a97;">
-                📸 Add your photo to the assets folder
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown(f'<div style="text-align:center;padding:30px;background:rgba(255,255,255,0.9);border-radius:20px;border:2px dashed #ffb6c1;"><div style="font-size:64px;">🌸</div><p style="font-weight:600;font-size:16px;color:#c44569;">{caption}</p><p style="font-size:12px;color:#c98a97;">📸 Add your photo to the assets folder</p></div>', unsafe_allow_html=True)
 
 
 # ===========================================================================
@@ -189,193 +95,22 @@ def _render_image_placeholder(caption: str) -> None:
 # ===========================================================================
 st.markdown("""
 <style>
-    /* ===== GLOBAL BACKGROUND ===== */
-    .stApp {
-        background: linear-gradient(135deg, #ffdde1 0%, #ee9ca7 100%);
-        background-attachment: fixed;
-    }
-    
-    /* ===== HIDE STREAMLIT BRANDING ===== */
-    #MainMenu, header, footer {
-        visibility: hidden;
-    }
-    
-    /* ===== TYPOGRAPHY ===== */
-    h1, h2, h3, h4 {
-        color: #a14a5c !important;
-        text-align: center;
-        text-shadow: 0 2px 6px rgba(255,255,255,0.4);
-    }
-    
-    p, span, label, div {
-        color: #7a3b47;
-    }
-    
-    /* ===== GLASSMORPHISM CARDS ===== */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-radius: 22px;
-        border: 1.5px solid rgba(238, 156, 167, 0.55);
-        box-shadow: 0 8px 32px rgba(238, 156, 167, 0.35);
-        padding: 20px 24px;
-        margin-bottom: 20px;
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
-    }
-    
-    .glass-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 40px rgba(238, 156, 167, 0.5);
-    }
-    
-    /* ===== BUTTONS ===== */
-    .stButton > button {
-        background: linear-gradient(135deg, #ffb6c1 0%, #ee9ca7 100%);
-        color: #6b2c3a;
-        border: none;
-        border-radius: 30px;
-        padding: 12px 24px;
-        font-weight: 700;
-        font-size: 16px;
-        width: 100%;
-        cursor: pointer;
-        box-shadow: 0 4px 14px rgba(238, 156, 167, 0.5);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    
-    .stButton > button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 6px 20px rgba(238, 156, 167, 0.7);
-    }
-    
-    .stButton > button:active {
-        transform: scale(0.98);
-    }
-    
-    /* ===== STEP INDICATOR DOTS ===== */
-    .step-indicator {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-        margin: 20px 0 30px 0;
-    }
-    
-    .step-dot {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 18px;
-        background: rgba(255, 255, 255, 0.5);
-        color: #c98a97;
-        border: 2px solid #ee9ca7;
-        transition: all 0.3s ease;
-    }
-    
-    .step-dot.active {
-        background: #ee9ca7;
-        color: white;
-        border-color: #c44569;
-        box-shadow: 0 0 20px rgba(238, 156, 167, 0.6);
-        animation: pulse 2s infinite;
-    }
-    
-    .step-dot.done {
-        background: #c44569;
-        color: white;
-        border-color: #c44569;
-    }
-    
-    /* ===== RPG DIALOGUE BOX ===== */
-    .dialogue-box {
-        background: #fff8ec;
-        border: 3px solid #2c2c54;
-        border-radius: 10px;
-        padding: 12px 16px;
-        text-align: center;
-        margin-top: 8px;
-        font-family: 'Courier New', monospace;
-        font-size: 15px;
-        color: #2c2c54;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        position: relative;
-    }
-    
-    .dialogue-box::after {
-        content: '';
-        position: absolute;
-        bottom: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 0;
-        height: 0;
-        border-left: 10px solid transparent;
-        border-right: 10px solid transparent;
-        border-top: 10px solid #2c2c54;
-    }
-    
-    /* ===== ANIMATIONS ===== */
-    @keyframes pulse {
-        0%, 100% {
-            box-shadow: 0 0 20px rgba(238, 156, 167, 0.6);
-        }
-        50% {
-            box-shadow: 0 0 35px rgba(238, 156, 167, 0.9);
-        }
-    }
-    
-    @keyframes glowPulse {
-        0%, 100% {
-            text-shadow: 0 0 10px rgba(255, 107, 157, 0.3);
-        }
-        50% {
-            text-shadow: 0 0 30px rgba(255, 107, 157, 0.8),
-                         0 0 60px rgba(255, 107, 157, 0.4);
-        }
-    }
-    
-    @keyframes popIn {
-        0% {
-            transform: scale(0.05);
-            opacity: 0;
-        }
-        60% {
-            transform: scale(1.05);
-            opacity: 1;
-        }
-        100% {
-            transform: scale(1);
-            opacity: 1;
-        }
-    }
-    
-    .glow-text {
-        animation: glowPulse 2s ease-in-out infinite;
-    }
-    
-    .photo-reveal {
-        animation: popIn 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3) forwards;
-    }
-    
-    /* ===== RESPONSIVE DESIGN ===== */
-    @media (max-width: 768px) {
-        .step-dot {
-            width: 32px;
-            height: 32px;
-            font-size: 14px;
-        }
-        .glass-card {
-            padding: 14px 16px;
-        }
-        .stButton > button {
-            font-size: 14px;
-            padding: 10px 18px;
-        }
-    }
+    .stApp { background: linear-gradient(135deg, #ffdde1 0%, #ee9ca7 100%); background-attachment: fixed; }
+    #MainMenu, header, footer { visibility: hidden; }
+    h1, h2, h3, h4 { color: #a14a5c !important; text-align: center; text-shadow: 0 2px 6px rgba(255,255,255,0.4); }
+    p, span, label, div { color: #7a3b47; }
+    .glass-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 22px; border: 1.5px solid rgba(238, 156, 167, 0.55); box-shadow: 0 8px 32px rgba(238, 156, 167, 0.35); padding: 20px 24px; margin-bottom: 20px; }
+    .stButton > button { background: linear-gradient(135deg, #ffb6c1 0%, #ee9ca7 100%); color: #6b2c3a; border: none; border-radius: 30px; padding: 12px 24px; font-weight: 700; font-size: 16px; width: 100%; cursor: pointer; box-shadow: 0 4px 14px rgba(238, 156, 167, 0.5); }
+    .stButton > button:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(238, 156, 167, 0.7); }
+    .step-indicator { display: flex; justify-content: center; gap: 12px; margin: 20px 0 30px 0; }
+    .step-dot { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; background: rgba(255, 255, 255, 0.5); color: #c98a97; border: 2px solid #ee9ca7; }
+    .step-dot.active { background: #ee9ca7; color: white; border-color: #c44569; box-shadow: 0 0 20px rgba(238, 156, 167, 0.6); animation: pulse 2s infinite; }
+    .step-dot.done { background: #c44569; color: white; border-color: #c44569; }
+    .dialogue-box { background: #fff8ec; border: 3px solid #2c2c54; border-radius: 10px; padding: 12px 16px; text-align: center; margin-top: 8px; font-family: 'Courier New', monospace; font-size: 15px; color: #2c2c54; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 20px rgba(238, 156, 167, 0.6); } 50% { box-shadow: 0 0 35px rgba(238, 156, 167, 0.9); } }
+    @keyframes glowPulse { 0%, 100% { text-shadow: 0 0 10px rgba(255, 107, 157, 0.3); } 50% { text-shadow: 0 0 30px rgba(255, 107, 157, 0.8), 0 0 60px rgba(255, 107, 157, 0.4); } }
+    .glow-text { animation: glowPulse 2s ease-in-out infinite; }
+    @media (max-width: 768px) { .step-dot { width: 32px; height: 32px; font-size: 14px; } .glass-card { padding: 14px 16px; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -383,21 +118,15 @@ st.markdown("""
 # ===========================================================================
 # SESSION STATE MANAGEMENT
 # ===========================================================================
-
 def initialize_session_state() -> None:
-    """
-    Initialize all session state variables for guided step-by-step flow.
-    Uses st.session_state to track progression through 4 steps.
-    """
     defaults: Dict[str, Any] = {
-        "current_step": 1,          # Tracks which step (1-4) user is on
-        "step1_stage": "walk",      # Step 1: walk -> talk
-        "step2_idx": 0,             # Step 2: which photo index
-        "step2_show": False,        # Step 2: are photos revealed?
-        "step2_just": False,        # Step 2: just revealed (triggers balloons)
-        "step4_phase": "entry",     # Step 4: entry -> hug -> kiss
+        "current_step": 1,
+        "step1_stage": "walk",
+        "step2_idx": 0,
+        "step2_show": False,
+        "step2_just": False,
+        "step4_phase": "entry",
     }
-    
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
@@ -409,28 +138,7 @@ initialize_session_state()
 # ===========================================================================
 # ANIMATION ENGINE - HTML5 Canvas Renderer
 # ===========================================================================
-
-def render_scene(
-    pose: str = "idle",
-    show_girl: bool = False,
-    show_heart: bool = False,
-    holding_photo: bool = False,
-) -> None:
-    """
-    Render the 2D RPG animation scene inside an HTML5 Canvas.
-    
-    This is the core animation engine. It generates a complete HTML document
-    with embedded JavaScript that draws characters pixel-by-pixel on a canvas
-    at 30 frames per second.
-    
-    Args:
-        pose: Character pose - "walk", "talk", "reach", "celebrate", "hug", "kiss"
-        show_girl: Whether to display the girl character alongside the boy
-        show_heart: Whether to show floating heart animations
-        holding_photo: Whether the boy is holding a photo in his hand
-    """
-    
-    # Build the complete HTML document
+def render_scene(pose: str = "idle", show_girl: bool = False, show_heart: bool = False, holding_photo: bool = False) -> None:
     html_content: str = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -439,442 +147,358 @@ def render_scene(
     <title>RPG Scene</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        
-        body {{
-            background: transparent;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }}
-        
-        canvas {{
-            border: 3px solid #7a4a3a;
-            border-radius: 16px;
-            display: block;
-            box-shadow:
-                0 8px 32px rgba(0, 0, 0, 0.3),
-                0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-        }}
+        body {{ background: transparent; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }}
+        canvas {{ border: 3px solid #7a4a3a; border-radius: 16px; display: block; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }}
     </style>
 </head>
 <body>
     <canvas id="gameCanvas" width="{CANVAS_WIDTH}" height="{CANVAS_HEIGHT}"></canvas>
-    
     <script>
     (function() {{
         'use strict';
         
-        // ================================================================
-        // CANVAS SETUP
-        // ================================================================
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        
-        // Disable image smoothing for crisp pixel art
         ctx.imageSmoothingEnabled = false;
         
-        // Canvas dimensions
         const W = {CANVAS_WIDTH};
         const H = {CANVAS_HEIGHT};
-        const GROUND_Y = H - 22;  // Ground level (22px from bottom)
+        const GROUND_Y = H - 22;
         
-        // ================================================================
-        // SCENE CONFIGURATION (passed from Python)
-        // ================================================================
         const POSE = '{pose}';
         const SHOW_HEART = {str(show_heart).lower()};
         const SHOW_GIRL = {str(show_girl).lower()};
         const HOLDING_PHOTO = {str(holding_photo).lower()};
         
-        // ================================================================
-        // COLOR PALETTE
-        // ================================================================
-        const COLORS = {{
-            hair:       '#4a2c17',
-            hairGirl:   '#8B4513',
-            skin:       '#ffd9b3',
-            skinLight:  '#ffe8cc',
-            shirt:      '#4f8ecb',
-            shirtDark:  '#33618f',
-            dress:      '#FF69B4',
-            dressDark:  '#FF1493',
-            pants:      '#333355',
-            shoe:       '#22222a',
-            eye:        '#2c2c54',
-            mouth:      '#a14a5c',
-            pocket:     '#1a2538',
-            heart:      '#ff6f91',
-            photoBg:    '#fffef5',
-            photoBorder:'#ffb6c1',
-            shadow:     'rgba(0, 0, 0, 0.2)',
-            cloud:      'rgba(255, 255, 255, 0.8)',
-            cloudFar:   'rgba(255, 255, 255, 0.5)',
-            sky:        '#c8e6ff',
-            grass:      '#7fc97f',
+        // Color palette
+        const C = {{
+            hair: '#4a2c17', hairGirl: '#8B4513', skin: '#ffd9b3',
+            shirt: '#4f8ecb', shirtDark: '#33618f', dress: '#FF69B4',
+            dressDark: '#FF1493', pants: '#333355', shoe: '#22222a',
+            eye: '#2c2c54', mouth: '#a14a5c', pocket: '#1a2538',
+            heart: '#ff6f91', photoBg: '#fffef5', photoBorder: '#ffb6c1',
+            shadow: 'rgba(0,0,0,0.2)', cloud: 'rgba(255,255,255,0.8)',
+            cloudFar: 'rgba(255,255,255,0.5)', sky: '#c8e6ff', grass: '#7fc97f'
         }};
         
-        // ================================================================
-        // CHARACTER STATE
-        // ================================================================
-        
-        // Boy character - walks in from LEFT side
+        // BOY character - walks in from LEFT
         const boy = {{
-            x: -40,                    // Start off-screen left
-            targetX: SHOW_GIRL ? 180 : 210,  // Center position
-            y: GROUND_Y,
-            walking: true,             // Start walking immediately
-            legPhase: 0,               // 0 = left forward, 1 = right forward
-            armWaveTimer: 0,           // For talking arm wave
-            hopTimer: 0,               // For celebrate bounce
-            mouthOpen: false,          // Toggles for talking animation
-            kissFrame: 0,              // Counts frames for kiss animation
-            isKissing: false,          // True when kiss animation active
+            x: -40, targetX: SHOW_GIRL ? 170 : 210, y: GROUND_Y,
+            walking: true, legPhase: 0, armWaveTimer: 0, hopTimer: 0,
+            mouthOpen: false, kissFrame: 0, isKissing: false
         }};
         
-        // Girl character - walks in from RIGHT side (only in Step 4 finale)
+        // GIRL character - walks in from RIGHT (Step 4 finale)
         const girl = {{
-            x: 460,                    // Start off-screen right
-            targetX: 240,              // Center-right position
-            y: GROUND_Y,
-            walking: SHOW_GIRL,        // Only walk if girl is visible
-            legPhase: 1,               // Opposite phase to boy
-            armWaveTimer: 0,
-            hopTimer: 0,
-            kissFrame: 0,
-            isKissing: false,
+            x: 460, targetX: 250, y: GROUND_Y,
+            walking: SHOW_GIRL, legPhase: 1, armWaveTimer: 0, hopTimer: 0,
+            kissFrame: 0, isKissing: false
         }};
         
-        // Global animation counter
         let tickCount = 0;
         
-        // ================================================================
-        // DRAWING PRIMITIVES
-        // ================================================================
+        function dr(x,y,w,h,c){{ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);}}
+        function arm(sx,sy,a,c){{ctx.save();ctx.translate(sx,sy);ctx.rotate(a*Math.PI/180);ctx.fillStyle=c;ctx.fillRect(-2,0,5,15);ctx.restore();}}
+        function shadow(cx,gy){{ctx.fillStyle=C.shadow;ctx.beginPath();ctx.ellipse(cx,gy+18,12,4,0,0,Math.PI*2);ctx.fill();}}
         
-        /**
-         * Draw a filled rectangle at integer coordinates.
-         * All positions are rounded for crisp pixel art.
-         */
-        function drawRect(x, y, w, h, color) {{
-            ctx.fillStyle = color;
-            ctx.fillRect(Math.round(x), Math.round(y), w, h);
+        // Draw BOY
+        function dB(ax,gy,s){{
+            var bob=0;
+            if(POSE==='celebrate')bob=Math.sin(s.hopTimer)*5;
+            else if(!s.walking&&POSE!=='walk')bob=Math.sin(tickCount/6)*1.8;
+            var ay=gy+bob;
+            shadow(ax,ay);
+            var ll=0,lr=0;
+            if(s.walking){{ll=s.legPhase?-5:0;lr=s.legPhase?0:-5;}}
+            else if(POSE==='celebrate'){{ll=Math.sin(s.hopTimer)>0?-3:0;lr=Math.sin(s.hopTimer)>0?0:-3;}}
+            // Legs
+            dr(ax-7,ay-16+ll,6,16,C.pants);dr(ax-7,ay-1+ll,6,4,C.shoe);
+            dr(ax+1,ay-16+lr,6,16,C.pants);dr(ax+1,ay-1+lr,6,4,C.shoe);
+            // Body
+            dr(ax-9,ay-34,18,20,C.shirt);dr(ax-9,ay-34,18,3,C.shirtDark);
+            dr(ax+3,ay-20,5,5,C.pocket);
+            // Arms
+            var al=8,ar=-8;
+            if(POSE==='talk')ar=-60+Math.sin(s.armWaveTimer)*40;
+            else if(POSE==='reach')ar=75;
+            else if(POSE==='celebrate'){{al=150+Math.sin(s.hopTimer)*15;ar=-150-Math.sin(s.hopTimer)*15;}}
+            else if(POSE==='hug'){{al=-55;ar=55;}}
+            else if(POSE==='kiss'){{al=-50;ar=50;}}
+            else if(s.walking){{al=s.legPhase?30:-20;ar=s.legPhase?-20:30;}}
+            arm(ax-9,ay-32,al,C.shirtDark);arm(ax+9,ay-32,ar,C.shirtDark);
+            // Photo in hand
+            if(HOLDING_PHOTO&&POSE==='reach'){{
+                var px=ax+14,py=ay-38;
+                dr(px-8,py-10,16,20,C.photoBg);
+                ctx.strokeStyle=C.photoBorder;ctx.lineWidth=1;ctx.strokeRect(px-8,py-10,16,20);
+                dr(px-4,py-4,3,3,C.heart);dr(px+3,py-4,3,3,C.heart);dr(px-4,py,10,3,C.heart);
+            }}
+            // Head
+            dr(ax-8,ay-50,16,16,C.skin);
+            dr(ax-9,ay-54,18,6,C.hair);dr(ax-9,ay-50,3,10,C.hair);dr(ax+6,ay-50,3,10,C.hair);
+            // Face
+            if(POSE==='kiss'&&s.isKissing){{dr(ax-4,ay-42,2,2,C.eye);dr(ax+2,ay-42,1,1,C.eye);dr(ax-2,ay-36,4,2,C.mouth);}}
+            else{{dr(ax-5,ay-42,2,2,C.eye);dr(ax+3,ay-42,2,2,C.eye);var mh=(POSE==='talk'&&s.mouthOpen)?3:1;dr(ax-3,ay-37,6,mh,C.mouth);}}
+            // Heart
+            if(SHOW_HEART){{var hy=ay-66-Math.sin(tickCount/5)*6,hx=ax+12;dr(hx,hy,3,3,C.heart);dr(hx+4,hy,3,3,C.heart);dr(hx-1,hy+3,9,3,C.heart);dr(hx+1,hy+6,5,2,C.heart);}}
         }}
         
-        /**
-         * Draw an arm segment at a given angle.
-         * The arm rotates around its shoulder joint.
-         */
-        function drawArm(shoulderX, shoulderY, angleDeg, color) {{
-            ctx.save();
-            ctx.translate(shoulderX, shoulderY);
-            ctx.rotate(angleDeg * Math.PI / 180);
-            ctx.fillStyle = color;
-            ctx.fillRect(-2, 0, 5, 15);
-            ctx.restore();
+        // Draw GIRL
+        function dG(ax,gy,s){{
+            var bob=Math.sin(tickCount/6)*1.8,ay=gy+bob;
+            shadow(ax,ay);
+            var ll=0,lr=0;
+            if(s.walking){{ll=s.legPhase?-5:0;lr=s.legPhase?0:-5;}}
+            // Legs
+            dr(ax-5,ay-8+ll,4,10,C.skin);dr(ax+1,ay-8+lr,4,10,C.skin);
+            dr(ax-5,ay,4,3,C.dressDark);dr(ax+1,ay,4,3,C.dressDark);
+            // Dress
+            dr(ax-9,ay-26,18,20,C.dress);dr(ax-9,ay-26,18,3,C.dressDark);
+            dr(ax-7,ay-38,14,14,C.dress);
+            // Arms
+            var al=8,ar=-8;
+            if(POSE==='hug'){{al=-45;ar=45;}}
+            else if(POSE==='kiss'){{al=-40;ar=40;}}
+            else if(s.walking){{al=s.legPhase?30:-20;ar=s.legPhase?-20:30;}}
+            arm(ax-7,ay-36,al,C.dressDark);arm(ax+7,ay-36,ar,C.dressDark);
+            // Head
+            dr(ax-8,ay-52,16,16,C.skin);
+            dr(ax-9,ay-56,18,7,C.hairGirl);dr(ax-9,ay-52,3,10,C.hairGirl);dr(ax+6,ay-52,3,10,C.hairGirl);
+            dr(ax-10,ay-53,4,5,C.hairGirl);dr(ax+6,ay-53,4,5,C.hairGirl);
+            // Face
+            if(POSE==='kiss'&&s.isKissing){{dr(ax-3,ay-44,2,2,C.eye);dr(ax+1,ay-44,1,1,C.eye);dr(ax-2,ay-38,4,2,C.mouth);}}
+            else{{dr(ax-5,ay-44,3,3,C.eye);dr(ax+2,ay-44,3,3,C.eye);dr(ax-2,ay-39,5,2,C.mouth);ctx.fillStyle='rgba(255,150,150,0.4)';ctx.fillRect(ax-7,ay-41,3,2);ctx.fillRect(ax+4,ay-41,3,2);}}
+            // Heart
+            if(SHOW_HEART){{var hy=ay-68-Math.sin(tickCount/5+1)*5,hx=ax-8;dr(hx,hy,3,3,C.heart);dr(hx+4,hy,3,3,C.heart);dr(hx-1,hy+3,9,3,C.heart);dr(hx+1,hy+6,5,2,C.heart);}}
         }}
         
-        /**
-         * Draw an elliptical shadow on the ground beneath a character.
-         */
-        function drawShadow(centerX, groundY) {{
-            ctx.fillStyle = COLORS.shadow;
-            ctx.beginPath();
-            ctx.ellipse(centerX, groundY + 18, 12, 4, 0, 0, Math.PI * 2);
-            ctx.fill();
+        // Background
+        function drawBg(){{
+            ctx.clearRect(0,0,W,H);
+            var sky=ctx.createLinearGradient(0,0,0,H*0.55);sky.addColorStop(0,'#d4eeff');sky.addColorStop(1,C.sky);ctx.fillStyle=sky;ctx.fillRect(0,0,W,H*0.55);
+            ctx.fillStyle=C.cloud;ctx.fillRect(15,8,35,9);ctx.fillRect(25,4,25,7);
+            ctx.fillStyle=C.cloudFar;ctx.fillRect(W-55,12,30,7);
+            var grass=ctx.createLinearGradient(0,H*0.55,0,H);grass.addColorStop(0,C.grass);grass.addColorStop(1,'#5a9e5a');ctx.fillStyle=grass;ctx.fillRect(0,H*0.55,W,H*0.45);
         }}
         
-        // ================================================================
-        // BOY CHARACTER DRAWING
-        // ================================================================
-        
-        /**
-         * Draw the complete boy character at the given position.
-         * This is the main character - a cute chibi-style RPG sprite.
-         */
-        function drawBoy(anchorX, groundY, state) {{
-            // ---- Calculate bobbing animation ----
-            let bobOffset = 0;
-            if (POSE === 'celebrate') {{
-                bobOffset = Math.sin(state.hopTimer) * 5;
-            }} else if (!state.walking && POSE !== 'walk') {{
-                bobOffset = Math.sin(tickCount / 6) * 1.8;
-            }}
-            const footY = groundY + bobOffset;
-            
-            // ---- Draw shadow ----
-            drawShadow(anchorX, footY);
-            
-            // ---- Legs with walking animation ----
-            let leftLift = 0, rightLift = 0;
-            if (state.walking) {{
-                // Alternating leg lift creates walking motion
-                leftLift = state.legPhase ? -5 : 0;
-                rightLift = state.legPhase ? 0 : -5;
-            }} else if (POSE === 'celebrate') {{
-                leftLift = Math.sin(state.hopTimer) > 0 ? -3 : 0;
-                rightLift = Math.sin(state.hopTimer) > 0 ? 0 : -3;
-            }}
-            
-            // Left leg
-            drawRect(anchorX - 7, footY - 16 + leftLift, 6, 16, COLORS.pants);
-            drawRect(anchorX - 7, footY - 1 + leftLift, 6, 4, COLORS.shoe);
-            
-            // Right leg
-            drawRect(anchorX + 1, footY - 16 + rightLift, 6, 16, COLORS.pants);
-            drawRect(anchorX + 1, footY - 1 + rightLift, 6, 4, COLORS.shoe);
-            
-            // ---- Body (blue shirt) ----
-            drawRect(anchorX - 9, footY - 34, 18, 20, COLORS.shirt);
-            drawRect(anchorX - 9, footY - 34, 18, 3, COLORS.shirtDark);  // Collar
-            
-            // ---- Pocket on shirt ----
-            drawRect(anchorX + 3, footY - 20, 5, 5, COLORS.pocket);
-            
-            // ---- Arms with pose-based animation ----
-            let leftArmAngle = 8, rightArmAngle = -8;  // Default: arms at sides
-            
-            switch (POSE) {{
-                case 'talk':
-                    // Right arm waves while talking
-                    rightArmAngle = -60 + Math.sin(state.armWaveTimer) * 40;
-                    break;
-                case 'reach':
-                    // Right arm reaches toward pocket
-                    rightArmAngle = 75;
-                    break;
-                case 'celebrate':
-                    // Both arms up in celebration
-                    leftArmAngle = 150 + Math.sin(state.hopTimer) * 15;
-                    rightArmAngle = -150 - Math.sin(state.hopTimer) * 15;
-                    break;
-                case 'hug':
-                    // Arms wide open for hug
-                    leftArmAngle = -55;
-                    rightArmAngle = 55;
-                    break;
-                case 'kiss':
-                    // Arms ready for kiss
-                    leftArmAngle = -50;
-                    rightArmAngle = 50;
-                    break;
-                default:
-                    if (state.walking) {{
-                        // Arms swing while walking
-                        leftArmAngle = state.legPhase ? 30 : -20;
-                        rightArmAngle = state.legPhase ? -20 : 30;
-                    }}
-            }}
-            
-            drawArm(anchorX - 9, footY - 32, leftArmAngle, COLORS.shirtDark);
-            drawArm(anchorX + 9, footY - 32, rightArmAngle, COLORS.shirtDark);
-            
-            // ---- Photo in hand (Step 2 pocket reveal) ----
-            if (HOLDING_PHOTO && POSE === 'reach') {{
-                const photoX = anchorX + 14;
-                const photoY = footY - 38;
-                
-                // Photo paper
-                drawRect(photoX - 8, photoY - 10, 16, 20, COLORS.photoBg);
-                
-                // Photo border
-                ctx.strokeStyle = COLORS.photoBorder;
-                ctx.lineWidth = 1;
-                ctx.strokeRect(photoX - 8, photoY - 10, 16, 20);
-                
-                // Heart decoration on photo
-                drawRect(photoX - 4, photoY - 4, 3, 3, COLORS.heart);
-                drawRect(photoX + 3, photoY - 4, 3, 3, COLORS.heart);
-                drawRect(photoX - 4, photoY, 10, 3, COLORS.heart);
-            }}
-            
-            // ---- Head ----
-            drawRect(anchorX - 8, footY - 50, 16, 16, COLORS.skin);
-            
-            // ---- Hair ----
-            drawRect(anchorX - 9, footY - 54, 18, 6, COLORS.hair);
-            drawRect(anchorX - 9, footY - 50, 3, 10, COLORS.hair);
-            drawRect(anchorX + 6, footY - 50, 3, 10, COLORS.hair);
-            
-            // ---- Face (eyes and mouth) ----
-            if (POSE === 'kiss' && state.isKissing) {{
-                // Kissing face: eyes closed, puckered lips
-                drawRect(anchorX - 4, footY - 42, 2, 2, COLORS.eye);
-                drawRect(anchorX + 2, footY - 42, 1, 1, COLORS.eye);
-                drawRect(anchorX - 2, footY - 36, 4, 2, COLORS.mouth);
-            }} else {{
-                // Normal face: open eyes
-                drawRect(anchorX - 5, footY - 42, 2, 2, COLORS.eye);
-                drawRect(anchorX + 3, footY - 42, 2, 2, COLORS.eye);
-                
-                // Mouth (opens when talking)
-                const mouthHeight = (POSE === 'talk' && state.mouthOpen) ? 3 : 1;
-                drawRect(anchorX - 3, footY - 37, 6, mouthHeight, COLORS.mouth);
-            }}
-            
-            // ---- Floating heart above head ----
-            if (SHOW_HEART) {{
-                const heartX = anchorX + 12;
-                const heartY = footY - 66 - Math.sin(tickCount / 5) * 6;
-                
-                drawRect(heartX, heartY, 3, 3, COLORS.heart);
-                drawRect(heartX + 4, heartY, 3, 3, COLORS.heart);
-                drawRect(heartX - 1, heartY + 3, 9, 3, COLORS.heart);
-                drawRect(heartX + 1, heartY + 6, 5, 2, COLORS.heart);
-            }}
-        }}
-        
-        // ================================================================
-        // GIRL CHARACTER DRAWING
-        // ================================================================
-        
-        /**
-         * Draw the complete girl character at the given position.
-         * She appears in Step 4 for the hug and kiss finale.
-         */
-        function drawGirl(anchorX, groundY, state) {{
-            // Bobbing animation (slightly different timing than boy)
-            const bobOffset = Math.sin(tickCount / 6) * 1.8;
-            const footY = groundY + bobOffset;
-            
-            // Shadow
-            drawShadow(anchorX, footY);
-            
-            // ---- Legs ----
-            let leftLift = 0, rightLift = 0;
-            if (state.walking) {{
-                leftLift = state.legPhase ? -5 : 0;
-                rightLift = state.legPhase ? 0 : -5;
-            }}
-            
-            drawRect(anchorX - 5, footY - 8 + leftLift, 4, 10, COLORS.skin);
-            drawRect(anchorX + 1, footY - 8 + rightLift, 4, 10, COLORS.skin);
-            drawRect(anchorX - 5, footY + 0, 4, 3, COLORS.dressDark);
-            drawRect(anchorX + 1, footY + 0, 4, 3, COLORS.dressDark);
-            
-            // ---- Dress ----
-            drawRect(anchorX - 9, footY - 26, 18, 20, COLORS.dress);
-            drawRect(anchorX - 9, footY - 26, 18, 3, COLORS.dressDark);
-            
-            // ---- Torso ----
-            drawRect(anchorX - 7, footY - 38, 14, 14, COLORS.dress);
-            
-            // ---- Arms ----
-            let leftArmAngle = 8, rightArmAngle = -8;
-            
-            if (POSE === 'hug') {{
-                leftArmAngle = -45;
-                rightArmAngle = 45;
-            }} else if (POSE === 'kiss') {{
-                leftArmAngle = -40;
-                rightArmAngle = 40;
-            }} else if (state.walking) {{
-                leftArmAngle = state.legPhase ? 30 : -20;
-                rightArmAngle = state.legPhase ? -20 : 30;
-            }}
-            
-            drawArm(anchorX - 7, footY - 36, leftArmAngle, COLORS.dressDark);
-            drawArm(anchorX + 7, footY - 36, rightArmAngle, COLORS.dressDark);
-            
-            // ---- Head ----
-            drawRect(anchorX - 8, footY - 52, 16, 16, COLORS.skin);
-            
-            // ---- Hair (longer with ponytails) ----
-            drawRect(anchorX - 9, footY - 56, 18, 7, COLORS.hairGirl);
-            drawRect(anchorX - 9, footY - 52, 3, 10, COLORS.hairGirl);
-            drawRect(anchorX + 6, footY - 52, 3, 10, COLORS.hairGirl);
-            
-            // Ponytails on sides
-            drawRect(anchorX - 10, footY - 53, 4, 5, COLORS.hairGirl);
-            drawRect(anchorX + 6, footY - 53, 4, 5, COLORS.hairGirl);
-            
-            // ---- Face ----
-            if (POSE === 'kiss' && state.isKissing) {{
-                // Kissing face
-                drawRect(anchorX - 3, footY - 44, 2, 2, COLORS.eye);
-                drawRect(anchorX + 1, footY - 44, 1, 1, COLORS.eye);
-                drawRect(anchorX - 2, footY - 38, 4, 2, COLORS.mouth);
-            }} else {{
-                // Normal face with blush
-                drawRect(anchorX - 5, footY - 44, 3, 3, COLORS.eye);
-                drawRect(anchorX + 2, footY - 44, 3, 3, COLORS.eye);
-                drawRect(anchorX - 2, footY - 39, 5, 2, COLORS.mouth);
-                
-                // Blush cheeks
-                ctx.fillStyle = 'rgba(255, 150, 150, 0.4)';
-                ctx.fillRect(anchorX - 7, footY - 41, 3, 2);
-                ctx.fillRect(anchorX + 4, footY - 41, 3, 2);
-            }}
-            
-            // ---- Floating heart ----
-            if (SHOW_HEART) {{
-                const heartX = anchorX - 8;
-                const heartY = footY - 68 - Math.sin(tickCount / 5 + 1) * 5;
-                
-                drawRect(heartX, heartY, 3, 3, COLORS.heart);
-                drawRect(heartX + 4, heartY, 3, 3, COLORS.heart);
-                drawRect(heartX - 1, heartY + 3, 9, 3, COLORS.heart);
-                drawRect(heartX + 1, heartY + 6, 5, 2, COLORS.heart);
-            }}
-        }}
-        
-        // ================================================================
-        // BACKGROUND DRAWING
-        // ================================================================
-        
-        /**
-         * Draw the complete background: sky, clouds, and grass.
-         */
-        function drawBackground() {{
-            // Clear canvas
-            ctx.clearRect(0, 0, W, H);
-            
-            // Sky gradient
-            const skyGradient = ctx.createLinearGradient(0, 0, 0, H * 0.55);
-            skyGradient.addColorStop(0, '#d4eeff');
-            skyGradient.addColorStop(1, COLORS.sky);
-            ctx.fillStyle = skyGradient;
-            ctx.fillRect(0, 0, W, H * 0.55);
-            
-            // Clouds (near)
-            ctx.fillStyle = COLORS.cloud;
-            ctx.fillRect(15, 8, 35, 9);
-            ctx.fillRect(25, 4, 25, 7);
-            
-            // Clouds (far)
-            ctx.fillStyle = COLORS.cloudFar;
-            ctx.fillRect(W - 55, 12, 30, 7);
-            
-            // Grass
-            const grassGradient = ctx.createLinearGradient(0, H * 0.55, 0, H);
-            grassGradient.addColorStop(0, COLORS.grass);
-            grassGradient.addColorStop(1, '#5a9e5a');
-            ctx.fillStyle = grassGradient;
-            ctx.fillRect(0, H * 0.55, W, H * 0.45);
-        }}
-        
-        // ================================================================
         // MAIN GAME LOOP - 30 FPS
-        // ================================================================
-        
-        /**
-         * Main animation loop. Called 30 times per second.
-         * Updates character positions and redraws the scene.
-         */
-        function gameLoop() {{
+        function gameLoop(){{
             tickCount++;
+            boy.armWaveTimer+=0.4;boy.hopTimer+=0.3;
+            girl.armWaveTimer+=0.35;girl.hopTimer+=0.28;
             
-            // Update animation timers
-            boy.armWaveTimer += 0.4;
-            boy.hopTimer += 0.3;
-            girl.armWaveTimer += 0.35;
-            girl.hopTimer += 0.28;
+            // Kiss animation
+            if(POSE==='kiss'){{boy.kissFrame++;girl.kissFrame++;if(boy.kissFrame>45){{boy.isKissing=true;girl.isKissing=true;}}}}
             
-            // ---- Kiss animation ----
-            if (POSE === 'kiss') {{
-                boy.kissFrame++;
-                girl.kissFrame++;
-                // After 50 frames (~1.7 seconds), characters start kissing
-                if
-                
+            // Boy walking
+            if(boy.walking){{boy.x+=2.5;if(boy.x>=boy.targetX){{boy.x=boy.targetX;boy.walking=false;}}if(tickCount%3===0)boy.legPhase=1-boy.legPhase;}}
+            
+            // Girl walking
+            if(girl.walking){{girl.x-=2.5;if(girl.x<=girl.targetX){{girl.x=girl.targetX;girl.walking=false;}}if(tickCount%3===0)girl.legPhase=1-girl.legPhase;}}
+            
+            // Mouth toggling for talk
+            if(POSE==='talk'&&tickCount%4===0)boy.mouthOpen=!boy.mouthOpen;
+            
+            // Draw everything
+            drawBg();
+            dB(boy.x,boy.y,boy);
+            if(SHOW_GIRL)dG(girl.x,girl.y,girl);
+        }}
+        
+        // Start the game loop
+        setInterval(gameLoop, 1000/30);
+        gameLoop();
+    }})();
+    </script>
+</body>
+</html>"""
+    
+    components.html(html_content, height=SCENE_HEIGHT, scrolling=False)
+
+
+# ===========================================================================
+# STEP INDICATOR COMPONENT
+# ===========================================================================
+def render_step_indicator() -> None:
+    dots = ""
+    for i in range(1, 5):
+        if i < st.session_state.current_step:
+            cls, icon = "done", "✓"
+        elif i == st.session_state.current_step:
+            cls, icon = "active", str(i)
+        else:
+            cls, icon = "", str(i)
+        dots += f'<div class="step-dot {cls}">{icon}</div>'
+    st.markdown(f'<div class="step-indicator">{dots}</div>', unsafe_allow_html=True)
+
+
+# ===========================================================================
+# DIALOGUE BOX COMPONENT
+# ===========================================================================
+def render_dialogue(text: str) -> None:
+    st.markdown(f'<div class="dialogue-box">💬 {text}</div>', unsafe_allow_html=True)
+
+
+# ===========================================================================
+# MAIN APP HEADER
+# ===========================================================================
+st.markdown('<h1>🎀 Happy Birthday, Pikku! 🎂</h1>', unsafe_allow_html=True)
+render_step_indicator()
+
+# ===========================================================================
+# STEP 1: BOY WALKS IN AND TALKS
+# ===========================================================================
+if st.session_state.current_step == 1:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("### 💬 Step 1: A Special Visitor Arrives")
+    safe_audio(BG_MUSIC_PATH)
+    
+    stage = st.session_state.step1_stage
+    
+    if stage == "walk":
+        render_scene(pose="walk")
+        render_dialogue("...")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("💬 Talk to him", use_container_width=True, key="btn_talk"):
+                st.session_state.step1_stage = "talk"
+                st.rerun()
+    
+    elif stage == "talk":
+        render_scene(pose="talk")
+        render_dialogue(GREETING_LINE)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("Next ➡️", use_container_width=True, key="btn_step1_next"):
+                st.session_state.current_step = 2
+                st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ===========================================================================
+# STEP 2: POCKET PHOTO REVEAL GAME
+# ===========================================================================
+elif st.session_state.current_step == 2:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("### 🎁 Step 2: Pocket Photo Surprise!")
+    
+    idx = st.session_state.step2_idx
+    total = len(POCKET_PHOTOS)
+    all_done = idx >= total
+    
+    if not all_done:
+        photo = POCKET_PHOTOS[idx]
+        render_scene(pose="reach", holding_photo=True)
+        render_dialogue(f"Photo {idx+1} of {total}: {photo['caption']}")
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if idx == 0 and not st.session_state.step2_show:
+                if st.button("🎁 Pull photo from pocket", use_container_width=True, key="btn_pull"):
+                    st.session_state.step2_show = True
+                    st.session_state.step2_just = True
+                    st.rerun()
+            elif st.session_state.step2_show:
+                label = "📸 Show Next Photo" if idx < total - 1 else "📸 View Final Photo"
+                if st.button(label, use_container_width=True, key=f"btn_photo_{idx}"):
+                    st.session_state.step2_idx += 1
+                    st.session_state.step2_just = True
+                    st.rerun()
+        
+        if st.session_state.step2_just:
+            st.balloons()
+            st.session_state.step2_just = False
+        
+        if st.session_state.step2_show:
+            safe_image(photo["path"], photo["caption"])
+    else:
+        render_scene(pose="celebrate", show_heart=True)
+        render_dialogue("All memories shown! What a beautiful collection! 💗")
+        
+        cols = st.columns(min(total, 4))
+        for i, photo in enumerate(POCKET_PHOTOS):
+            with cols[i % len(cols)]:
+                safe_image(photo["path"], photo["caption"])
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("Proceed to Next Step ➡️", use_container_width=True, key="btn_step2_next"):
+                st.session_state.current_step = 3
+                st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ===========================================================================
+# STEP 3: VIDEO SHOWCASE
+# ===========================================================================
+elif st.session_state.current_step == 3:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("### 🎬 Step 3: Cute Video Messages")
+    
+    video_cols = st.columns(2)
+    labels = ["Cute Clip 1", "Cute Clip 2"]
+    for col, path, label in zip(video_cols, VIDEO_PATHS, labels):
+        with col:
+            st.markdown(f"**{label}**")
+            safe_video(path, label)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("💖 Reveal Final Surprise ➡️", use_container_width=True, key="btn_step3_next"):
+            st.session_state.current_step = 4
+            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ===========================================================================
+# STEP 4: GRAND FINALE - BOY & GIRL HUG & KISS
+# ===========================================================================
+elif st.session_state.current_step == 4:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("### 💕 Step 4: The Grand Finale")
+    
+    phase = st.session_state.step4_phase
+    
+    if phase == "entry":
+        # Both characters walk in from opposite sides
+        render_scene(pose="hug", show_girl=True, show_heart=True)
+        render_dialogue("They walk toward each other... Hearts are racing! 💓")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🤗 Watch Them Hug!", use_container_width=True, key="btn_hug"):
+                st.session_state.step4_phase = "hug"
+                st.rerun()
+    
+    elif phase == "hug":
+        # Hugging animation
+        render_scene(pose="hug", show_girl=True, show_heart=True)
+        render_dialogue("They embrace each other tightly... The warmest hug ever! 🤗")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("💋 Now Watch Them Kiss!", use_container_width=True, key="btn_kiss"):
+                st.session_state.step4_phase = "kiss"
+                st.rerun()
+    
+    elif phase == "kiss":
+        # Kissing animation with hearts
+        render_scene(pose="kiss", show_girl=True, show_heart=True)
+        render_dialogue("Thank you for being my favorite person in the entire universe! 🎉💖")
+        st.balloons()
+        st.markdown(
+            '<div class="glass-card" style="text-align:center;">'
+            '<h2 class="glow-text">💝 Happy Birthday, Pikku! 💝</h2>'
+            '<p style="font-size:18px;">'
+            'Thank you for being my favorite person in the entire universe! '
+            'May this year bring you endless joy and happiness. '
+            'Here\'s to more beautiful memories together! 🌸✨'
+            '</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🎉 Celebrate Again! 🎉", use_container_width=True, key="btn_celebrate"):
+                st.balloons()
+                st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)

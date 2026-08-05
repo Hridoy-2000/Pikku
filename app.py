@@ -18,9 +18,6 @@ import base64
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ---------------------------------------------------------------------------
-# PAGE CONFIGURATION
-# ---------------------------------------------------------------------------
 st.set_page_config(
     page_title="Happy Birthday, Pikku!",
     page_icon="🎂",
@@ -28,9 +25,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ---------------------------------------------------------------------------
-# ASSET PATHS
-# ---------------------------------------------------------------------------
 ASSETS_DIR = "assets"
 os.makedirs(ASSETS_DIR, exist_ok=True)
 BG_MUSIC_PATH = os.path.join(ASSETS_DIR, "bg_music.mp3")
@@ -46,9 +40,6 @@ POCKET_PHOTOS = [
 ]
 GREETING_LINE = "Hi. Hey, I know your birthday is coming and you are very happy for that."
 
-# ---------------------------------------------------------------------------
-# HELPER FUNCTIONS
-# ---------------------------------------------------------------------------
 def safe_audio(path):
     if os.path.exists(path):
         try:
@@ -80,9 +71,6 @@ def safe_image(path, caption="", use_container_width=True):
     else:
         st.markdown(f'<div class="glass-card" style="text-align:center;padding:30px;"><div style="font-size:64px;">🌸</div><p style="font-weight:600;font-size:18px;color:#c44569;">{caption}</p><p style="font-size:12px;color:#c98a97;">(add photo at {path})</p></div>', unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
-# GLOBAL CSS
-# ---------------------------------------------------------------------------
 st.markdown("""
 <style>
 .stApp { background: linear-gradient(135deg, #ffdde1 0%, #ee9ca7 100%); background-attachment: fixed; }
@@ -107,9 +95,6 @@ p, span, label, li, div { color: #7a3b47; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
-# SESSION STATE
-# ---------------------------------------------------------------------------
 if "current_step" not in st.session_state:
     st.session_state.current_step = 1
 if "step1_stage" not in st.session_state:
@@ -123,9 +108,6 @@ if "step2_just_switched" not in st.session_state:
 if "step4_phase" not in st.session_state:
     st.session_state.step4_phase = "entry"
 
-# ---------------------------------------------------------------------------
-# RPG SCENE HTML TEMPLATE
-# ---------------------------------------------------------------------------
 RPG_SCENE_HTML = """
 <!DOCTYPE html>
 <html>
@@ -328,15 +310,10 @@ def render_step_indicator():
         dots += f'<div class="step-dot {cls}">{icon}</div>'
     st.markdown(f'<div class="step-indicator">{dots}</div>', unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
-# HEADER
-# ---------------------------------------------------------------------------
 st.markdown('<div class="title-banner"><h1>Happy Birthday, Pikku!</h1></div>', unsafe_allow_html=True)
 render_step_indicator()
 
-# ===========================================================================
-# STEP 1 - 2D Animated Boy Entrance & Greeting
-# ===========================================================================
+# STEP 1
 if st.session_state.current_step == 1:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.markdown("### Step 1: A Special Visitor Arrives")
@@ -360,9 +337,7 @@ if st.session_state.current_step == 1:
                 st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ===========================================================================
-# STEP 2 - Interactive Pocket Photo Reveal
-# ===========================================================================
+# STEP 2
 elif st.session_state.current_step == 2:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.markdown("### Step 2: Pocket Photo Surprise!")
@@ -371,7 +346,8 @@ elif st.session_state.current_step == 2:
     all_shown = photo_index >= total_photos
     if not all_shown:
         current_photo = POCKET_PHOTOS[photo_index]
-        render_rpg_scene(pose="reach", holding_photo=True, dialogue=[f"Photo {photo_index+1} of {total_photos}: {current_photo['caption']}"])
+        cap = current_photo['caption']
+        render_rpg_scene(pose="reach", holding_photo=True, dialogue=[f"Photo {photo_index+1} of {total_photos}: {cap}"])
         st.write("")
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
@@ -381,7 +357,8 @@ elif st.session_state.current_step == 2:
                     st.session_state.step2_just_switched = True
                     st.rerun()
             elif st.session_state.step2_showing_photo:
-                if st.button("Show Next Photo" if photo_index < total_photos - 1 else "View Final Photo", use_container_width=True, key=f"btn_next_photo_{photo_index}"):
+                label = "Show Next Photo" if photo_index < total_photos - 1 else "View Final Photo"
+                if st.button(label, use_container_width=True, key=f"btn_next_photo_{photo_index}"):
                     st.session_state.step2_photo_index += 1
                     st.session_state.step2_just_switched = True
                     st.rerun()
@@ -390,8 +367,8 @@ elif st.session_state.current_step == 2:
             st.session_state.step2_just_switched = False
         if st.session_state.step2_showing_photo:
             st.write("")
-            st.markdown(f"#### Photo {photo_index+1}: {current_photo['caption']}")
-            safe_image(current_photo["path"], current_photo["caption"])
+            st.markdown(f"#### Photo {photo_index+1}: {cap}")
+            safe_image(current_photo["path"], cap)
     else:
         render_rpg_scene(pose="celebrate", show_heart=True, dialogue=["That is all the memories in his pocket!", "What a beautiful collection!"])
         st.write("")
@@ -407,9 +384,7 @@ elif st.session_state.current_step == 2:
                 st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ===========================================================================
-# STEP 3 - Cute Video Showcase
-# ===========================================================================
+# STEP 3
 elif st.session_state.current_step == 3:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.markdown("### Step 3: Cute Videos")
@@ -426,9 +401,7 @@ elif st.session_state.current_step == 3:
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ===========================================================================
-# STEP 4 - FINAL FINALE (Boy & Girl Hug & Kiss)
-# ===========================================================================
+# STEP 4
 elif st.session_state.current_step == 4:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.markdown("### Step 4: The Grand Finale")
@@ -450,4 +423,10 @@ elif st.session_state.current_step == 4:
                 st.session_state.step4_phase = "kiss"
                 st.rerun()
     elif phase == "kiss":
-        render_rpg_scene(pose="kiss", show_heart=True, show_girl=True, dialogue=["Thank you for being my favorite person in the entire universe!", "Happy Birthday
+        render_rpg_scene(pose="kiss", show_heart=True, show_girl=True, dialogue=["Thank you for being my favorite person in the entire universe!", "Happy Birthday! 🎉💖"], scene_w=500, canvas_w=180)
+        st.balloons()
+        st.markdown('<div class="glass-card" style="text-align:center;"><h2 class="glow-text">Happy Birthday, Pikku!</h2><p style="font-size:18px;">Thank you for being my favorite person in the entire universe! May this year bring you as much joy as you bring into everyone else\'s life. Here is to more days, more stories, and more reasons to smile together.</p></div>', unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("Celebrate Again!", use_container_width=True, key="btn_celebrate"):
+                st

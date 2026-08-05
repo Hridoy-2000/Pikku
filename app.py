@@ -1,829 +1,851 @@
+"""
+Pikku's Birthday Web App — Complete RPG Sprite Edition
+=======================================================
+A guided 5-step Streamlit birthday experience featuring
+authentic 2D RPG characters rendered on HTML5 Canvas at 30 FPS.
+No external image assets required — everything is drawn in code.
+
+Run with:
+    streamlit run app.py
+
+requirements.txt:
+    streamlit
+    requests
+    Pillow
+"""
+
+import os
+import json
+import base64
+import time
+
+import requests
 import streamlit as st
 import streamlit.components.v1 as components
-import time
-import random
-import base64
 from PIL import Image
-import io
 
-# Page configuration
+# ---------------------------------------------------------------------------
+# PAGE CONFIGURATION
+# ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Happy Birthday Pikku! 🎂",
-    page_icon="🎉",
+    page_title="Happy Birthday, Pikku! 🎀",
+    page_icon="🎂",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
 
-# Custom CSS for the entire app
-st.markdown("""
-<style>
-    /* Hide Streamlit default elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
+# ---------------------------------------------------------------------------
+# ASSET PATHS — degrade safely to placeholders when files are missing
+# ---------------------------------------------------------------------------
+ASSETS_DIR = "assets"
+os.makedirs(ASSETS_DIR, exist_ok=True)
+
+BG_MUSIC_PATH = os.path.join(ASSETS_DIR, "bg_music.mp3")
+VIDEO_PATHS = [
+    os.path.join(ASSETS_DIR, "video1.mp4"),
+    os.path.join(ASSETS_DIR, "video2.mp4"),
+]
+POCKET_PHOTOS = [
+    {"path": os.path.join(ASSETS_DIR, "memory1.jpg"), "caption": "The day we first talked 💌"},
+    {"path": os.path.join(ASSETS_DIR, "memory2.jpg"), "caption": "That silly joke you made 😂"},
+    {"path": os.path.join(ASSETS_DIR, "memory3.jpg"), "caption": "The moment I knew 💗"},
+    {"path": os.path.join(ASSETS_DIR, "memory4.jpg"), "caption": "Us, always 🌸"},
+]
+
+GREETING_LINE = "Hi. Hey, I know your birthday is coming and you are very happy for that."
+
+# ---------------------------------------------------------------------------
+# SAFE HELPERS — never crash because of missing files
+# ---------------------------------------------------------------------------
+def safe_audio(path: str) -> None:
+    """Play background music if the file exists, otherwise show a hint."""
+    if os.path.exists(path):
+        try:
+            with open(path, "rb") as f:
+                audio_bytes = f.read()
+            audio_base64 = base64.b64encode(audio_bytes).decode()
+            st.markdown(
+                f"""
+                <audio autoplay loop style="display:none;">
+                    <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+                </audio>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.caption("🎵 Background music is playing...")
+        except Exception:
+            st.caption("🎵 Add a valid MP3 file at `assets/bg_music.mp3` to enable background music.")
+    else:
+        st.caption("🎵 Add your song at `assets/bg_music.mp3` to enable background music.")
+
+
+def safe_video(path: str, label: str) -> None:
+    """Display a video if the file exists, otherwise show a placeholder."""
+    if os.path.exists(path):
+        try:
+            st.video(path)
+        except Exception:
+            st.info(f"📹 Add a valid video at `{path}` to show '{label}' here.")
+    else:
+        st.info(f"📹 Add a clip at `{path}` to show '{label}' here.")
+
+
+def safe_image(path: str, caption: str = "", use_container_width: bool = True) -> None:
+    """Display an image if the file exists, otherwise show a placeholder card."""
+    if os.path.exists(path):
+        try:
+            st.image(path, caption=caption, use_container_width=use_container_width)
+        except Exception:
+            _image_placeholder(caption, path)
+    else:
+        _image_placeholder(caption, path)
+
+
+def _image_placeholder(caption: str, path: str) -> None:
+    """Render a pretty placeholder card for missing images."""
+    st.markdown(
+        f"""
+        <div class="glass-card" style="text-align:center; padding:30px;">
+            <div style="font-size:64px;">🌸</div>
+            <p style="font-weight:600;font-size:18px;color:#c44569;">{caption}</p>
+            <p style="font-size:12px;color:#c98a97;">(add photo at {path})</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GLOBAL STREAMLIT CSS — pink gradient + glassmorphism
+# ---------------------------------------------------------------------------
+st.markdown(
+    """
+    <style>
+    /* Global background */
     .stApp {
         background: linear-gradient(135deg, #ffdde1 0%, #ee9ca7 100%);
+        background-attachment: fixed;
     }
-    
-    /* Glassmorphism cards */
+    #MainMenu, header, footer {visibility: hidden;}
+
+    /* Typography */
+    h1, h2, h3, h4 {
+        color: #a14a5c !important;
+        text-shadow: 0 2px 6px rgba(255,255,255,0.4);
+    }
+    p, span, label, li, div {
+        color: #7a3b47;
+    }
+
+    /* Glassmorphism card */
     .glass-card {
         background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 30px;
-        margin: 20px 0;
-        border: 2px solid rgba(255, 182, 193, 0.3);
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 22px;
+        border: 1.5px solid rgba(238, 156, 167, 0.55);
+        box-shadow: 0 8px 32px rgba(238, 156, 167, 0.35);
+        padding: 20px 24px;
+        margin-bottom: 20px;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
-    
-    /* Custom button styling */
+    .glass-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(238, 156, 167, 0.5);
+    }
+
+    /* Buttons */
     .stButton > button {
-        background: linear-gradient(45deg, #ff6b9d, #c44569);
-        color: white;
+        background: linear-gradient(135deg, #ffb6c1 0%, #ee9ca7 100%);
+        color: #6b2c3a;
         border: none;
-        padding: 15px 30px;
-        border-radius: 50px;
-        font-size: 18px;
-        font-weight: bold;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
+        border-radius: 30px;
+        padding: 10px 22px;
+        font-weight: 700;
+        box-shadow: 0 4px 14px rgba(238, 156, 167, 0.5);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-    
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(255, 107, 157, 0.5);
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(238, 156, 167, 0.7);
+        color: #6b2c3a;
     }
-    
-    /* Progress bar styling */
-    .progress-container {
-        margin: 20px 0;
+    .stButton > button:disabled {
+        background: #e0c0c8;
+        color: #a08088;
+        box-shadow: none;
     }
+
+    /* Title banner */
+    .title-banner {
+        text-align: center;
+        padding: 10px 0 4px 0;
+    }
+
+    /* Step indicator */
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 15px 0 25px 0;
+    }
+    .step-dot {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 18px;
+        background: rgba(255,255,255,0.5);
+        color: #c98a97;
+        border: 2px solid #ee9ca7;
+        transition: all 0.3s ease;
+    }
+    .step-dot.active {
+        background: #ee9ca7;
+        color: white;
+        border-color: #c44569;
+        box-shadow: 0 0 15px rgba(238, 156, 167, 0.6);
+    }
+    .step-dot.done {
+        background: #c44569;
+        color: white;
+        border-color: #c44569;
+    }
+
+    /* Pop-in animation for revealed photos */
+    @keyframes popIn {
+        0%   { transform: scale(0.05); opacity: 0; }
+        60%  { transform: scale(1.08); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .pocket-photo-new {
+        animation: popIn 0.6s cubic-bezier(.2,.9,.3,1.3) forwards;
+    }
+
+    /* Glowing text */
+    @keyframes glowPulse {
+        0%, 100% { text-shadow: 0 0 10px rgba(255,107,157,0.3); }
+        50%      { text-shadow: 0 0 25px rgba(255,107,157,0.7), 0 0 50px rgba(255,107,157,0.3); }
+    }
+    .glow-text {
+        animation: glowPulse 2s ease-in-out infinite;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .step-dot { width: 30px; height: 30px; font-size: 14px; }
+        .glass-card { padding: 14px 16px; }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------------------------------
+# SESSION STATE — guided step-by-step progression
+# ---------------------------------------------------------------------------
+if "current_step" not in st.session_state:
+    st.session_state.current_step = 1  # 1 through 5
+
+if "step1_dialogue_stage" not in st.session_state:
+    st.session_state.step1_dialogue_stage = "idle"  # idle | walking | greeting | talking | done
+
+if "step2_viewed" not in st.session_state:
+    st.session_state.step2_viewed = False
+
+if "step3_pocket_revealed" not in st.session_state:
+    st.session_state.step3_pocket_revealed = []
+
+if "step3_just_revealed" not in st.session_state:
+    st.session_state.step3_just_revealed = False
+
+if "step4_viewed" not in st.session_state:
+    st.session_state.step4_viewed = False
+
+if "step5_finale_triggered" not in st.session_state:
+    st.session_state.step5_finale_triggered = False
+
+if "step5_animation_phase" not in st.session_state:
+    st.session_state.step5_animation_phase = "entry"  # entry | approach | hug | kiss | done
+
+# ---------------------------------------------------------------------------
+# RPG SCENE HTML TEMPLATE
+# ---------------------------------------------------------------------------
+RPG_SCENE_TEMPLATE = r"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  html, body {
+      margin: 0; padding: 0; background: transparent; overflow: hidden;
+      font-family: 'Courier New', 'Comic Sans MS', monospace, cursive;
+  }
+
+  .scene-wrap {
+      position: relative;
+      width: __SCENE_W__px;
+      height: __SCENE_H__px;
+      margin: 0 auto;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 3px solid #7a4a3a;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+      background: linear-gradient(#bdeaff 0%, #bdeaff 55%, #7fc97f 55%, #7fc97f 100%);
+  }
+
+  /* Scrolling ground tile strip */
+  .ground-strip {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 26px;
+      background-image: repeating-linear-gradient(
+          90deg,
+          #6ab86a 0px, #6ab86a 8px,
+          #5aa65a 8px, #5aa65a 16px
+      );
+      background-size: 32px 26px;
+      animation: groundScroll 0.8s steps(4) infinite;
+      opacity: 0.9;
+      z-index: 1;
+  }
+  @keyframes groundScroll {
+      from { background-position-x: 0px; }
+      to   { background-position-x: -32px; }
+  }
+
+  canvas#rpgCanvas {
+      position: absolute;
+      left: 50%; top: 8px;
+      transform: translateX(-50%);
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+      width: __CANVAS_DISPLAY_W__px;
+      height: __CANVAS_DISPLAY_H__px;
+      z-index: 2;
+  }
+
+  /* RPG dialogue box */
+  .dbox-wrap {
+      position: absolute;
+      left: 6px; right: 6px; bottom: 6px;
+      display: __DBOX_DISPLAY__;
+      z-index: 10;
+  }
+  .dbox {
+      background: #fff8ec;
+      border: 3px solid #2c2c54;
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 2px #ffe9c7, 0 4px 10px rgba(0,0,0,0.3);
+      padding: 8px 30px 8px 10px;
+      min-height: 44px;
+      font-size: 13px;
+      line-height: 1.35;
+      color: #2c2c54;
+      position: relative;
+      cursor: pointer;
+  }
+  .dbox-arrow {
+      position: absolute;
+      right: 10px; bottom: 6px;
+      width: 0; height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 8px solid #2c2c54;
+      animation: arrowBlink 0.6s steps(1) infinite;
+  }
+  @keyframes arrowBlink {
+      0%, 49%   { opacity: 1; }
+      50%, 100% { opacity: 0; }
+  }
+
+  /* Floating hearts */
+  .floating-hearts {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 3;
+  }
+  .heart-particle {
+      position: absolute;
+      font-size: 18px;
+      animation: floatUp 2.5s ease-out forwards;
+      pointer-events: none;
+  }
+  @keyframes floatUp {
+      0%   { transform: translateY(0) scale(0.5); opacity: 1; }
+      100% { transform: translateY(-200px) scale(1.5); opacity: 0; }
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+      .scene-wrap { transform: scale(0.85); transform-origin: top center; }
+      .dbox { font-size: 11px; padding: 6px 24px 6px 8px; }
+  }
 </style>
-""", unsafe_allow_html=True)
-
-# Initialize session state
-if 'step' not in st.session_state:
-    st.session_state.step = 1
-if 'animation_triggered' not in st.session_state:
-    st.session_state.animation_triggered = False
-if 'photo_revealed' not in st.session_state:
-    st.session_state.photo_revealed = False
-if 'finale_triggered' not in st.session_state:
-    st.session_state.finale_triggered = False
-
-def generate_html5_canvas(step, action="idle"):
-    """Generate HTML5 canvas with animated 2D sprites"""
-    
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{
-                margin: 0;
-                padding: 0;
-                overflow: hidden;
-                background: transparent;
-            }}
-            #gameCanvas {{
-                background: transparent;
-                display: block;
-            }}
-            .speech-bubble {{
-                position: absolute;
-                top: 10%;
-                left: 50%;
-                transform: translateX(-50%);
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(10px);
-                border-radius: 20px;
-                padding: 20px 30px;
-                border: 3px solid #ffb6c1;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-                font-family: 'Comic Sans MS', cursive;
-                font-size: 18px;
-                color: #c44569;
-                display: none;
-                z-index: 100;
-                max-width: 400px;
-                text-align: center;
-            }}
-        </style>
-    </head>
-    <body>
-        <canvas id="gameCanvas"></canvas>
-        <div class="speech-bubble" id="speechBubble"></div>
-        
-        <script>
-            const canvas = document.getElementById('gameCanvas');
-            const ctx = canvas.getContext('2d');
-            const speechBubble = document.getElementById('speechBubble');
-            
-            // Set canvas size
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            
-            // Animation state
-            let boyX = -100;
-            let boyY = canvas.height / 2 - 50;
-            let girlX = canvas.width + 100;
-            let girlY = canvas.height / 2 - 50;
-            let frameCount = 0;
-            let animationPhase = "{action}";
-            let photoScale = 0;
-            let photoY = canvas.height / 2;
-            let particles = [];
-            
-            // Character drawing functions
-            function drawBoy(x, y, frame, action) {{
-                ctx.save();
-                ctx.translate(x, y);
-                
-                // Body
-                ctx.fillStyle = '#4A90E2';
-                ctx.fillRect(15, 40, 30, 40);
-                
-                // Head
-                ctx.fillStyle = '#FFE0BD';
-                ctx.beginPath();
-                ctx.arc(30, 25, 20, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Hair
-                ctx.fillStyle = '#2C1810';
-                ctx.beginPath();
-                ctx.arc(30, 20, 20, Math.PI, 0);
-                ctx.fill();
-                
-                // Eyes
-                ctx.fillStyle = '#000';
-                ctx.beginPath();
-                ctx.arc(22, 25, 3, 0, Math.PI * 2);
-                ctx.arc(38, 25, 3, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Mouth
-                if (action === 'talking') {{
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath();
-                    ctx.ellipse(30, 32, 4, 3, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                }} else {{
-                    ctx.strokeStyle = '#000';
-                    ctx.beginPath();
-                    ctx.arc(30, 30, 5, 0, Math.PI);
-                    ctx.stroke();
-                }}
-                
-                // Arms
-                ctx.strokeStyle = '#FFE0BD';
-                ctx.lineWidth = 6;
-                if (action === 'waving') {{
-                    ctx.beginPath();
-                    ctx.moveTo(15, 45);
-                    ctx.lineTo(5, 20 + Math.sin(frameCount * 0.1) * 10);
-                    ctx.stroke();
-                }} else if (action === 'reaching') {{
-                    ctx.beginPath();
-                    ctx.moveTo(45, 45);
-                    ctx.lineTo(55, 35);
-                    ctx.stroke();
-                }} else {{
-                    ctx.beginPath();
-                    ctx.moveTo(15, 45);
-                    ctx.lineTo(5, 55);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(45, 45);
-                    ctx.lineTo(55, 55);
-                    ctx.stroke();
-                }}
-                
-                // Legs with walking animation
-                ctx.strokeStyle = '#2C1810';
-                ctx.lineWidth = 8;
-                if (action === 'walking') {{
-                    let legOffset = Math.sin(frameCount * 0.15) * 10;
-                    ctx.beginPath();
-                    ctx.moveTo(22, 80);
-                    ctx.lineTo(22 - legOffset, 110);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(38, 80);
-                    ctx.lineTo(38 + legOffset, 110);
-                    ctx.stroke();
-                }} else {{
-                    ctx.beginPath();
-                    ctx.moveTo(22, 80);
-                    ctx.lineTo(22, 110);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(38, 80);
-                    ctx.lineTo(38, 110);
-                    ctx.stroke();
-                }}
-                
-                // Shoes
-                ctx.fillStyle = '#333';
-                ctx.fillRect(12, 110, 20, 10);
-                ctx.fillRect(28, 110, 20, 10);
-                
-                ctx.restore();
-            }}
-            
-            function drawGirl(x, y, frame, action) {{
-                ctx.save();
-                ctx.translate(x, y);
-                
-                // Body
-                ctx.fillStyle = '#FF69B4';
-                ctx.fillRect(15, 40, 30, 40);
-                
-                // Head
-                ctx.fillStyle = '#FFE0BD';
-                ctx.beginPath();
-                ctx.arc(30, 25, 20, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Hair
-                ctx.fillStyle = '#8B4513';
-                ctx.beginPath();
-                ctx.arc(30, 20, 20, Math.PI, 0);
-                ctx.fill();
-                // Ponytails
-                ctx.beginPath();
-                ctx.arc(12, 20, 8, 0, Math.PI * 2);
-                ctx.arc(48, 20, 8, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Eyes
-                ctx.fillStyle = '#000';
-                ctx.beginPath();
-                ctx.arc(22, 25, 3, 0, Math.PI * 2);
-                ctx.arc(38, 25, 3, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Eyelashes
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(19, 22);
-                ctx.lineTo(17, 20);
-                ctx.moveTo(25, 22);
-                ctx.lineTo(24, 20);
-                ctx.moveTo(35, 22);
-                ctx.lineTo(34, 20);
-                ctx.moveTo(41, 22);
-                ctx.lineTo(43, 20);
-                ctx.stroke();
-                
-                // Mouth
-                ctx.fillStyle = '#FF6B9D';
-                ctx.beginPath();
-                ctx.arc(30, 32, 3, 0, Math.PI);
-                ctx.fill();
-                
-                // Arms
-                ctx.strokeStyle = '#FFE0BD';
-                ctx.lineWidth = 6;
-                if (action === 'hugging') {{
-                    ctx.beginPath();
-                    ctx.moveTo(15, 45);
-                    ctx.lineTo(-10, 40);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(45, 45);
-                    ctx.lineTo(70, 40);
-                    ctx.stroke();
-                }} else {{
-                    ctx.beginPath();
-                    ctx.moveTo(15, 45);
-                    ctx.lineTo(5, 55);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(45, 45);
-                    ctx.lineTo(55, 55);
-                    ctx.stroke();
-                }}
-                
-                // Dress
-                ctx.fillStyle = '#FF69B4';
-                ctx.beginPath();
-                ctx.moveTo(15, 80);
-                ctx.lineTo(45, 80);
-                ctx.lineTo(55, 110);
-                ctx.lineTo(5, 110);
-                ctx.closePath();
-                ctx.fill();
-                
-                // Legs
-                ctx.strokeStyle = '#FFE0BD';
-                ctx.lineWidth = 6;
-                ctx.beginPath();
-                ctx.moveTo(22, 80);
-                ctx.lineTo(22, 110);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(38, 80);
-                ctx.lineTo(38, 110);
-                ctx.stroke();
-                
-                ctx.restore();
-            }}
-            
-            function createParticle(x, y) {{
-                return {{
-                    x: x,
-                    y: y,
-                    vx: (Math.random() - 0.5) * 4,
-                    vy: Math.random() * -8 - 2,
-                    life: 1,
-                    color: `hsl(${{Math.random() * 60 + 300}}, 100%, 75%)`,
-                    size: Math.random() * 4 + 2
-                }};
-            }}
-            
-            function updateParticles() {{
-                for (let i = particles.length - 1; i >= 0; i--) {{
-                    let p = particles[i];
-                    p.x += p.vx;
-                    p.y += p.vy;
-                    p.vy += 0.1;
-                    p.life -= 0.02;
-                    
-                    if (p.life <= 0) {{
-                        particles.splice(i, 1);
-                    }}
-                }}
-            }}
-            
-            function drawParticles() {{
-                particles.forEach(p => {{
-                    ctx.save();
-                    ctx.globalAlpha = p.life;
-                    ctx.fillStyle = p.color;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.restore();
-                }});
-            }}
-            
-            function drawPhoto(x, y, scale) {{
-                ctx.save();
-                ctx.translate(x, y);
-                ctx.scale(scale, scale);
-                
-                // Photo frame
-                ctx.fillStyle = '#FFF';
-                ctx.fillRect(-50, -70, 100, 140);
-                ctx.strokeStyle = '#FF69B4';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(-50, -70, 100, 140);
-                
-                // Photo content (placeholder heart)
-                ctx.fillStyle = '#FF6B9D';
-                ctx.beginPath();
-                let heartX = 0;
-                let heartY = -10;
-                ctx.moveTo(heartX, heartY);
-                ctx.bezierCurveTo(heartX - 20, heartY - 20, heartX - 30, heartY + 10, heartX, heartY + 30);
-                ctx.bezierCurveTo(heartX + 30, heartY + 10, heartX + 20, heartY - 20, heartX, heartY);
-                ctx.fill();
-                
-                // "Memory" text
-                ctx.fillStyle = '#C44569';
-                ctx.font = '12px Comic Sans MS';
-                ctx.textAlign = 'center';
-                ctx.fillText('Memory ❤️', 0, 50);
-                
-                ctx.restore();
-            }}
-            
-            // Animation loop
-            function animate() {{
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                frameCount++;
-                
-                // Draw gradient background
-                let gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-                gradient.addColorStop(0, '#ffdde1');
-                gradient.addColorStop(1, '#ee9ca7');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Draw decorative elements
-                for (let i = 0; i < 10; i++) {{
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-                    ctx.beginPath();
-                    ctx.arc(Math.sin(frameCount * 0.02 + i) * 100 + canvas.width/2, 
-                           Math.cos(frameCount * 0.02 + i) * 100 + canvas.height/2, 
-                           5, 0, Math.PI * 2);
-                    ctx.fill();
-                }}
-                
-                // Animation logic based on phase
-                switch(animationPhase) {{
-                    case 'walking_in':
-                        boyX += 2;
-                        if (boyX >= canvas.width / 2 - 30) {{
-                            boyX = canvas.width / 2 - 30;
-                            animationPhase = 'idle';
-                            // Notify Streamlit
-                            window.parent.postMessage({{type: 'animation_complete', phase: 'walking_in'}}, '*');
-                        }}
-                        drawBoy(boyX, boyY, frameCount, 'walking');
-                        break;
-                        
-                    case 'idle':
-                        drawBoy(canvas.width / 2 - 30, boyY, frameCount, 'idle');
-                        break;
-                        
-                    case 'talking':
-                        drawBoy(canvas.width / 2 - 30, boyY, frameCount, 'talking');
-                        speechBubble.style.display = 'block';
-                        speechBubble.textContent = document.getElementById('dialogueText')?.value || '';
-                        break;
-                        
-                    case 'reaching_pocket':
-                        boyX = canvas.width / 2 - 50;
-                        drawBoy(boyX, boyY, frameCount, 'reaching');
-                        break;
-                        
-                    case 'photo_reveal':
-                        drawBoy(canvas.width / 2 - 80, boyY, frameCount, 'idle');
-                        if (photoScale < 1) {{
-                            photoScale += 0.02;
-                            photoY -= 2;
-                        }}
-                        drawPhoto(canvas.width / 2 + 50, photoY, photoScale);
-                        
-                        // Add celebration particles
-                        if (Math.random() < 0.3) {{
-                            particles.push(createParticle(canvas.width / 2, canvas.height / 2));
-                        }}
-                        break;
-                        
-                    case 'double_entry':
-                        if (boyX < canvas.width / 3) boyX += 2;
-                        if (girlX > canvas.width * 2/3) girlX -= 2;
-                        drawBoy(boyX, boyY, frameCount, 'walking');
-                        drawGirl(girlX, girlY, frameCount, 'walking');
-                        
-                        if (boyX >= canvas.width / 3 && girlX <= canvas.width * 2/3) {{
-                            animationPhase = 'approaching';
-                        }}
-                        break;
-                        
-                    case 'approaching':
-                        if (boyX < canvas.width / 2 - 30) boyX += 1.5;
-                        if (girlX > canvas.width / 2 + 30) girlX -= 1.5;
-                        drawBoy(boyX, boyY, frameCount, 'walking');
-                        drawGirl(girlX, girlY, frameCount, 'walking');
-                        
-                        if (boyX >= canvas.width / 2 - 30 && girlX <= canvas.width / 2 + 30) {{
-                            animationPhase = 'hugging';
-                        }}
-                        break;
-                        
-                    case 'hugging':
-                        drawBoy(boyX, boyY, frameCount, 'idle');
-                        drawGirl(girlX, girlY, frameCount, 'hugging');
-                        
-                        // Heart particles
-                        if (Math.random() < 0.5) {{
-                            let midX = (boyX + girlX) / 2;
-                            let midY = boyY;
-                            particles.push(createParticle(midX, midY));
-                        }}
-                        
-                        speechBubble.style.display = 'block';
-                        speechBubble.textContent = document.getElementById('finalMessage')?.textContent || '';
-                        break;
-                }}
-                
-                updateParticles();
-                drawParticles();
-                
-                requestAnimationFrame(animate);
-            }}
-            
-            // Start animation
-            animate();
-            
-            // Handle messages from Streamlit
-            window.addEventListener('message', function(event) {{
-                if (event.data.type === 'set_phase') {{
-                    animationPhase = event.data.phase;
-                }}
-                if (event.data.type === 'set_dialogue') {{
-                    let dialogueEl = document.getElementById('dialogueText');
-                    if (!dialogueEl) {{
-                        dialogueEl = document.createElement('input');
-                        dialogueEl.type = 'hidden';
-                        dialogueEl.id = 'dialogueText';
-                        document.body.appendChild(dialogueEl);
-                    }}
-                    dialogueEl.value = event.data.text;
-                }}
-            }});
-            
-            // Handle window resize
-            window.addEventListener('resize', function() {{
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            }});
-        </script>
-    </body>
-    </html>
-    """
-    
-    return html_content
-
-# Main app header
-st.markdown("""
-<div style="text-align: center; padding: 50px 0;">
-    <h1 style="color: #c44569; font-size: 48px; margin-bottom: 10px;">
-        🎂 Happy Birthday Pikku! 🎉
-    </h1>
-    <p style="color: #ff6b9d; font-size: 20px;">
-        A magical journey just for you 💖
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-# Progress indicator
-progress_percentage = min((st.session_state.step - 1) * 25, 100)
-st.markdown(f"""
-<div class="progress-container">
-    <div style="background: rgba(255,255,255,0.5); border-radius: 20px; height: 20px; margin: 0 50px;">
-        <div style="background: linear-gradient(90deg, #ff6b9d, #c44569); width: {progress_percentage}%; 
-                    height: 100%; border-radius: 20px; transition: width 0.5s ease;">
-        </div>
+</head>
+<body>
+  <div class="scene-wrap">
+    <canvas id="rpgCanvas" width="__CANVAS_W__" height="__CANVAS_H__"></canvas>
+    <div class="ground-strip"></div>
+    <div class="floating-hearts" id="floatingHearts"></div>
+    <div class="dbox-wrap">
+      <div class="dbox" id="dboxClickArea">
+        <span id="dboxText"></span>
+        <div class="dbox-arrow" id="dboxArrow" style="display:none;"></div>
+      </div>
     </div>
-    <p style="text-align: center; color: #c44569; margin-top: 10px;">Step {st.session_state.step} of 5</p>
-</div>
-""", unsafe_allow_html=True)
+  </div>
 
-# STEP 1: Boy Entrance & Greeting
-if st.session_state.step == 1:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        # Display HTML5 canvas with walking animation
-        if not st.session_state.animation_triggered:
-            components.html(generate_html5_canvas(1, "walking_in"), height=400)
-            st.session_state.animation_triggered = True
-        else:
-            components.html(generate_html5_canvas(1, "talking"), height=400)
-    
-    with col2:
-        st.markdown("""
-        <div style="text-align: center; padding-top: 50px;">
-            <h3 style="color: #c44569;">👋 A Special Visitor</h3>
-            <p style="color: #666;">Someone wants to talk to you...</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("💬 Talk to him / बात सुनो", key="talk_button", use_container_width=True):
-            st.session_state.talking_started = True
-            # Trigger talking animation
-            dialogue_html = f"""
-            <script>
-                window.parent.postMessage({{type: 'set_phase', phase: 'talking'}}, '*');
-                window.parent.postMessage({{type: 'set_dialogue', text: "Hi! Hey, I know your birthday is coming and you are very happy for that! 😊"}}, '*');
-            </script>
-            """
-            components.html(dialogue_html, height=0)
-            
-            # Show speech bubble text
-            st.markdown("""
-            <div style="text-align: center; padding: 20px;">
-                <div style="background: rgba(255,255,255,0.95); padding: 20px; border-radius: 20px; 
-                            border: 3px solid #ffb6c1; display: inline-block; margin: 20px;">
-                    <p style="font-size: 20px; color: #c44569; margin: 0;">
-                        "Hi! Hey, I know your birthday is coming and you are very happy for that! 😊"
-                    </p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Next step button
-            if st.button("Next Step ➡️", key="next_step_1", use_container_width=True):
-                st.session_state.step = 2
-                st.session_state.animation_triggered = False
-                st.session_state.photo_revealed = False
-                st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# STEP 2: Interactive Story Milestones
-elif st.session_state.step == 2:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("""
-    <h2 style="text-align: center; color: #c44569;">📖 Our Beautiful Memories</h2>
-    """, unsafe_allow_html=True)
-    
-    # Story cards with animations
-    memories = [
-        {"title": "The First Hello 👋", "description": "Remember when we first met? That magical moment when our eyes met and everything changed forever...", "emoji": "✨"},
-        {"title": "Laughter & Joy 😄", "description": "All those times we laughed until our stomachs hurt, creating memories that will last a lifetime.", "emoji": "💫"},
-        {"title": "Adventures Together 🌟", "description": "Every adventure became special because you were there. From simple walks to grand journeys, you made everything better.", "emoji": "🌈"},
-        {"title": "Birthday Magic 🎂", "description": "And now here we are, celebrating YOU - the most amazing person who deserves all the happiness in the world!", "emoji": "💝"}
-    ]
-    
-    for i, memory in enumerate(memories):
-        with st.container():
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                st.markdown(f"""
-                <div style="text-align: center; padding: 20px;">
-                    <div style="font-size: 50px;">{memory['emoji']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with col2:
-                st.markdown(f"""
-                <div style="padding: 15px; background: rgba(255,255,255,0.5); border-radius: 15px; margin: 10px 0;">
-                    <h3 style="color: #c44569;">{memory['title']}</h3>
-                    <p style="color: #666;">{memory['description']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("Next Step ➡️", key="next_step_2", use_container_width=True):
-            st.session_state.step = 3
-            st.session_state.animation_triggered = False
-            st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# STEP 3: Pocket Photo Reveal
-elif st.session_state.step == 3:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("""
-    <h2 style="text-align: center; color: #c44569;">🎁 A Special Surprise</h2>
-    """, unsafe_allow_html=True)
-    
-    # Display canvas with reaching animation
-    if not st.session_state.photo_revealed:
-        components.html(generate_html5_canvas(3, "reaching_pocket"), height=400)
-        
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.markdown("""
-            <div style="text-align: center; padding: 20px;">
-                <p style="color: #666; font-size: 18px;">
-                    He's reaching into his pocket... What could it be? 🤔
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("🎁 Pull photo from pocket", key="pull_photo", use_container_width=True):
-                st.session_state.photo_revealed = True
-                st.balloons()
-                st.rerun()
-    else:
-        # Photo reveal animation
-        components.html(generate_html5_canvas(3, "photo_reveal"), height=500)
-        
-        st.markdown("""
-        <div style="text-align: center; padding: 20px;">
-            <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; 
-                        border: 3px solid #ffb6c1; display: inline-block; margin: 20px; 
-                        box-shadow: 0 10px 30px rgba(255,107,157,0.2);">
-                <h2 style="color: #c44569;">📸 A Precious Memory</h2>
-                <div style="font-size: 100px; padding: 20px;">💖</div>
-                <p style="color: #666; font-size: 18px;">Every moment with you is worth cherishing forever!</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            if st.button("Next Step ➡️", key="next_step_3", use_container_width=True):
-                st.session_state.step = 4
-                st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# STEP 4: Video Showcase
-elif st.session_state.step == 4:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("""
-    <h2 style="text-align: center; color: #c44569;">🎬 Special Video Messages</h2>
-    """, unsafe_allow_html=True)
-    
-    # Video placeholder with beautiful design
-    col1, col2, col3 = st.columns([1, 3, 1])
-    with col2:
-        st.markdown("""
-        <div style="background: rgba(0,0,0,0.05); border-radius: 20px; padding: 40px; 
-                    text-align: center; min-height: 300px; display: flex; 
-                    align-items: center; justify-content: center; flex-direction: column;">
-            <div style="font-size: 80px;">🎥</div>
-            <h3 style="color: #c44569; margin-top: 20px;">Your Birthday Video</h3>
-            <p style="color: #666;">A special message from the heart 💝</p>
-            <div style="margin-top: 20px;">
-                <button style="background: linear-gradient(45deg, #ff6b9d, #c44569); 
-                               color: white; border: none; padding: 15px 30px; 
-                               border-radius: 50px; font-size: 18px; cursor: pointer;">
-                    ▶️ Play Video
-                </button>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("Reveal Final Surprise 💖 ➡️", key="reveal_finale", use_container_width=True):
-            st.session_state.step = 5
-            st.session_state.animation_triggered = False
-            st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# STEP 5: Final Finale Scene
-elif st.session_state.step == 5:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    
-    if not st.session_state.finale_triggered:
-        # Double character entry animation
-        components.html(generate_html5_canvas(5, "double_entry"), height=500)
-        
-        st.markdown("""
-        <div style="text-align: center; padding: 20px;">
-            <h2 style="color: #c44569;">💕 The Grand Finale</h2>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        time.sleep(3)  # Wait for animation
-        
-        # Trigger hugging animation
-        components.html(generate_html5_canvas(5, "approaching"), height=500)
-        time.sleep(2)
-        
-        st.session_state.finale_triggered = True
-        st.balloons()
-        st.snow()
-        st.rerun()
-    
-    else:
-        # Final hugging scene with message
-        components.html(generate_html5_canvas(5, "hugging"), height=500)
-        
-        st.markdown("""
-        <div style="text-align: center; padding: 30px;">
-            <div style="background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,220,220,0.95)); 
-                        padding: 40px; border-radius: 30px; border: 3px solid #ffb6c1; 
-                        box-shadow: 0 15px 40px rgba(255,107,157,0.3);
-                        animation: glow 2s ease-in-out infinite alternate;">
-                <h1 style="color: #c44569; font-size: 36px; margin-bottom: 20px;">
-                    💖 Happy Birthday Pikku! 💖
-                </h1>
-                <p style="color: #666; font-size: 24px; line-height: 1.5;">
-                    "Thank you for being my favorite person<br>
-                    in the entire universe!<br>
-                    Happy Birthday! 🎉💖"
-                </p>
-                <div style="font-size: 60px; margin-top: 20px;">
-                    🎂 🎈 🎁 🎊 ✨
-                </div>
-            </div>
-        </div>
-        
-        <style>
-            @keyframes glow {{
-                from {{ box-shadow: 0 0 20px rgba(255,107,157,0.3); }}
-                to {{ box-shadow: 0 0 40px rgba(255,107,157,0.6); }}
-            }}
-        </style>
-        """, unsafe_allow_html=True)
-        
-        # Additional celebration effects
-        if st.button("🎉 Celebrate Again! 🎉", key="celebrate_again", use_container_width=True):
-            st.balloons()
-            st.snow()
-            st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Footer
-st.markdown("""
-<div style="text-align: center; padding: 30px; color: rgba(255,255,255,0.7);">
-    <p>Made with 💖 specially for Pikku</p>
-</div>
-""", unsafe_allow_html=True)
-
-# Auto-play background music (optional)
-st.markdown("""
 <script>
-    // Background music can be added here if needed
-    console.log('🎵 Happy Birthday Pikku! 🎵');
+(function () {
+  var canvas = document.getElementById('rpgCanvas');
+  var ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  var W = canvas.width, H = canvas.height;
+  var GROUND_Y = H - 22;
+
+  // ---- Configuration from Python ----
+  var POSE = "__POSE__";
+  var SHOW_HEART = __SHOW_HEART__;
+  var SHOW_GIRL = __SHOW_GIRL__;
+  var DIALOGUE = __DIALOGUE_JSON__;
+  var AUTO_ADVANCE_STEPS = __AUTO_ADVANCE_STEPS__;
+
+  // ---- Colour palette ----
+  var C_HAIR   = "#4a2c17";
+  var C_HAIR_G = "#8B4513";
+  var C_SKIN   = "#ffd9b3";
+  var C_SHIRT  = "#4f8ecb";
+  var C_SHIRT_DK = "#33618f";
+  var C_DRESS  = "#FF69B4";
+  var C_DRESS_DK = "#FF1493";
+  var C_PANTS  = "#333355";
+  var C_SHOE   = "#22222a";
+  var C_EYE    = "#2c2c54";
+  var C_MOUTH  = "#a14a5c";
+  var C_POCKET = "#22314a";
+  var C_HEART  = "#ff6f91";
+
+  // ---- State ----
+  var boy = {
+      x: POSE === "walk" ? -20 : (SHOW_GIRL ? Math.round(W / 2) - 20 : Math.round(W / 2)),
+      targetX: SHOW_GIRL ? Math.round(W / 2) - 20 : Math.round(W / 2),
+      walking: (POSE === "walk" || POSE === "entry"),
+      legPhase: 0,
+      armWaveT: 0,
+      hopT: 0,
+      mouthOpen: false,
+      pocketItemY: 0,
+      pocketItemScale: 0,
+      pocketRevealing: false
+  };
+
+  var girl = {
+      x: W + 40,
+      targetX: Math.round(W / 2) + 20,
+      walking: (POSE === "entry" && SHOW_GIRL),
+      legPhase: 1,
+      armWaveT: 0,
+      hopT: 0,
+      mouthOpen: false
+  };
+
+  var tickCounter = 0;
+  var dialogueLines = DIALOGUE || [];
+  var currentLineIdx = 0;
+  var typingTimer = null;
+  var typingComplete = false;
+
+  // ---- Drawing helpers ----
+  function drawRect(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.round(x), Math.round(y), w, h);
+  }
+
+  function drawArm(shoulderX, shoulderY, angleDeg, color) {
+      ctx.save();
+      ctx.translate(shoulderX, shoulderY);
+      ctx.rotate(angleDeg * Math.PI / 180);
+      ctx.fillStyle = color;
+      ctx.fillRect(-2, 0, 5, 15);
+      ctx.restore();
+  }
+
+  // ---- Draw Boy ----
+  function drawBoy(ax, groundY, s) {
+      var bob = 0;
+      if (POSE === "celebrate") {
+          bob = Math.sin(s.hopT) * 3;
+      } else if (!s.walking) {
+          bob = Math.sin(tickCounter / 12) * 1.2;
+      }
+      var ay = groundY + bob;
+
+      // Legs
+      var liftL = 0, liftR = 0;
+      if (s.walking) {
+          liftL = s.legPhase === 0 ? -3 : 0;
+          liftR = s.legPhase === 0 ? 0 : -3;
+      } else if (POSE === "celebrate") {
+          liftL = Math.sin(s.hopT) > 0 ? -2 : 0;
+          liftR = Math.sin(s.hopT) > 0 ? 0 : -2;
+      }
+      drawRect(ax - 7, ay - 16 + liftL, 6, 16, C_PANTS);
+      drawRect(ax - 7, ay - 3 + liftL, 6, 3, C_SHOE);
+      drawRect(ax + 1, ay - 16 + liftR, 6, 16, C_PANTS);
+      drawRect(ax + 1, ay - 3 + liftR, 6, 3, C_SHOE);
+
+      // Body
+      drawRect(ax - 9, ay - 34, 18, 20, C_SHIRT);
+      drawRect(ax - 9, ay - 34, 18, 3, C_SHIRT_DK);
+
+      // Pocket
+      drawRect(ax + 3, ay - 20, 5, 5, C_POCKET);
+
+      // Arms
+      var armAngleL = 8, armAngleR = -8;
+      if (POSE === "talk") {
+          armAngleR = -60 + Math.sin(s.armWaveT) * 35;
+      } else if (POSE === "reach") {
+          armAngleR = 70;
+      } else if (POSE === "celebrate") {
+          armAngleL = 150 + Math.sin(s.hopT) * 10;
+          armAngleR = -150 - Math.sin(s.hopT) * 10;
+      } else if (POSE === "hug") {
+          armAngleL = -60;
+          armAngleR = 60;
+      } else if (s.walking) {
+          armAngleL = s.legPhase === 0 ? 30 : -20;
+          armAngleR = s.legPhase === 0 ? -20 : 30;
+      }
+      drawArm(ax - 9, ay - 32, armAngleL, C_SHIRT_DK);
+      drawArm(ax + 9, ay - 32, armAngleR, C_SHIRT_DK);
+
+      // Head
+      drawRect(ax - 8, ay - 50, 16, 16, C_SKIN);
+      drawRect(ax - 9, ay - 54, 18, 6, C_HAIR);
+      drawRect(ax - 9, ay - 50, 3, 10, C_HAIR);
+      drawRect(ax + 6, ay - 50, 3, 10, C_HAIR);
+
+      // Eyes
+      drawRect(ax - 5, ay - 42, 2, 2, C_EYE);
+      drawRect(ax + 3, ay - 42, 2, 2, C_EYE);
+
+      // Mouth
+      var mouthH = (POSE === "talk" && s.mouthOpen) ? 3 : 1;
+      drawRect(ax - 3, ay - 37, 6, mouthH, C_MOUTH);
+
+      // Pocket item reveal
+      if (s.pocketRevealing) {
+          var itemX = ax + 8;
+          var itemY = ay - 22 - s.pocketItemY;
+          var scale = s.pocketItemScale;
+          ctx.save();
+          ctx.translate(itemX, itemY);
+          ctx.scale(scale, scale);
+          // Small photo card
+          ctx.fillStyle = "#fffef5";
+          ctx.fillRect(-6, -8, 12, 16);
+          ctx.strokeStyle = "#ffb6c1";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(-6, -8, 12, 16);
+          // Heart on photo
+          ctx.fillStyle = C_HEART;
+          ctx.fillRect(-2, -2, 2, 2);
+          ctx.fillRect(2, -2, 2, 2);
+          ctx.fillRect(-3, 0, 8, 2);
+          ctx.fillRect(-1, 2, 4, 1);
+          ctx.restore();
+      }
+
+      // Floating heart above head
+      if (SHOW_HEART) {
+          var hy = ay - 66 - Math.sin(tickCounter / 10) * 4;
+          var hx = ax + 12;
+          ctx.fillStyle = C_HEART;
+          ctx.fillRect(hx, hy, 3, 3);
+          ctx.fillRect(hx + 4, hy, 3, 3);
+          ctx.fillRect(hx - 1, hy + 3, 9, 3);
+          ctx.fillRect(hx + 1, hy + 6, 5, 2);
+      }
+  }
+
+  // ---- Draw Girl ----
+  function drawGirl(ax, groundY, s) {
+      var bob = Math.sin(tickCounter / 12) * 1.5;
+      var ay = groundY + bob;
+
+      // Legs
+      var liftL = 0, liftR = 0;
+      if (s.walking) {
+          liftL = s.legPhase === 0 ? -3 : 0;
+          liftR = s.legPhase === 0 ? 0 : -3;
+      }
+      drawRect(ax - 5, ay - 8 + liftL, 4, 10, C_SKIN);
+      drawRect(ax + 1, ay - 8 + liftR, 4, 10, C_SKIN);
+      drawRect(ax - 5, ay - 2 + liftL, 4, 3, C_DRESS_DK);
+      drawRect(ax + 1, ay - 2 + liftR, 4, 3, C_DRESS_DK);
+
+      // Dress
+      drawRect(ax - 9, ay - 26, 18, 20, C_DRESS);
+      drawRect(ax - 9, ay - 26, 18, 3, C_DRESS_DK);
+
+      // Body/torso
+      drawRect(ax - 7, ay - 38, 14, 14, C_DRESS);
+      drawRect(ax - 7, ay - 38, 14, 2, C_DRESS_DK);
+
+      // Arms
+      var armAngleL = 8, armAngleR = -8;
+      if (POSE === "hug") {
+          armAngleL = -50;
+          armAngleR = 50;
+      } else if (s.walking) {
+          armAngleL = s.legPhase === 0 ? 30 : -20;
+          armAngleR = s.legPhase === 0 ? -20 : 30;
+      }
+      drawArm(ax - 7, ay - 36, armAngleL, C_DRESS_DK);
+      drawArm(ax + 7, ay - 36, armAngleR, C_DRESS_DK);
+
+      // Head
+      drawRect(ax - 8, ay - 52, 16, 16, C_SKIN);
+      drawRect(ax - 9, ay - 56, 18, 7, C_HAIR_G);
+      // Side hair
+      drawRect(ax - 9, ay - 52, 3, 10, C_HAIR_G);
+      drawRect(ax + 6, ay - 52, 3, 10, C_HAIR_G);
+      // Ponytails
+      drawRect(ax - 12, ay - 53, 4, 6, C_HAIR_G);
+      drawRect(ax + 8, ay - 53, 4, 6, C_HAIR_G);
+
+      // Eyes (slightly larger)
+      drawRect(ax - 5, ay - 44, 3, 3, C_EYE);
+      drawRect(ax + 2, ay - 44, 3, 3, C_EYE);
+      // Eyelashes
+      drawRect(ax - 6, ay - 46, 1, 2, C_EYE);
+      drawRect(ax + 5, ay - 46, 1, 2, C_EYE);
+
+      // Smile
+      drawRect(ax - 2, ay - 39, 5, 2, C_MOUTH);
+
+      // Blush
+      ctx.fillStyle = "rgba(255,150,150,0.4)";
+      ctx.fillRect(ax - 7, ay - 41, 3, 2);
+      ctx.fillRect(ax + 4, ay - 41, 3, 2);
+
+      // Floating heart above girl's head
+      if (SHOW_HEART) {
+          var hy = ay - 68 - Math.sin(tickCounter / 10 + 1) * 3;
+          var hx = ax - 8;
+          ctx.fillStyle = C_HEART;
+          ctx.fillRect(hx, hy, 3, 3);
+          ctx.fillRect(hx + 4, hy, 3, 3);
+          ctx.fillRect(hx - 1, hy + 3, 9, 3);
+          ctx.fillRect(hx + 1, hy + 6, 5, 2);
+      }
+  }
+
+  function drawBackground() {
+      ctx.clearRect(0, 0, W, H);
+      // A few decorative clouds
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillRect(15, 10, 30, 8);
+      ctx.fillRect(20, 5, 20, 6);
+      ctx.fillRect(W - 50, 18, 28, 7);
+      ctx.fillRect(W - 45, 13, 18, 6);
+  }
+
+  // ---- Spawn floating heart particles ----
+  function spawnHeartParticle(x, y) {
+      var container = document.getElementById('floatingHearts');
+      if (!container) return;
+      var heart = document.createElement('div');
+      heart.className = 'heart-particle';
+      heart.textContent = '💕';
+      heart.style.left = x + 'px';
+      heart.style.top = y + 'px';
+      container.appendChild(heart);
+      setTimeout(function() {
+          if (heart.parentNode) heart.parentNode.removeChild(heart);
+      }, 2600);
+  }
+
+  // ---- 30 FPS game loop ----
+  var FPS = 30;
+  function tick() {
+      tickCounter++;
+      boy.armWaveT += 0.35;
+      boy.hopT += 0.28;
+      girl.armWaveT += 0.32;
+      girl.hopT += 0.26;
+
+      // Boy walking
+      if (boy.walking) {
+          if (POSE === "entry" && SHOW_GIRL) {
+              boy.x += 1.6;
+              if (boy.x >= boy.targetX) {
+                  boy.x = boy.targetX;
+                  boy.walking = false;
+              }
+          } else {
+              boy.x += 2.2;
+              if (boy.x >= boy.targetX) {
+                  boy.x = boy.targetX;
+                  boy.walking = false;
+              }
+          }
+          if (tickCounter % 4 === 0) boy.legPhase = 1 - boy.legPhase;
+      }
+
+      // Girl walking (from right side)
+      if (girl.walking) {
+          girl.x -= 1.8;
+          if (girl.x <= girl.targetX) {
+              girl.x = girl.targetX;
+              girl.walking = false;
+          }
+          if (tickCounter % 4 === 0) girl.legPhase = 1 - girl.legPhase;
+      }
+
+      // Mouth toggling for talk pose
+      if (POSE === "talk" && tickCounter % 5 === 0) {
+          boy.mouthOpen = !boy.mouthOpen;
+      }
+
+      // Pocket reveal animation
+      if (boy.pocketRevealing) {
+          boy.pocketItemY += 1.2;
+          boy.pocketItemScale += 0.04;
+          if (boy.pocketItemY > 40) {
+              boy.pocketRevealing = false;
+          }
+      }
+
+      // Spawn floating hearts periodically for hug/celebrate
+      if ((POSE === "hug" || POSE === "celebrate") && tickCounter % 15 === 0) {
+          var sceneWrap = document.querySelector('.scene-wrap');
+          if (sceneWrap) {
+              var rect = sceneWrap.getBoundingClientRect();
+              var hx = (boy.x / W) * rect.width;
+              var hy = (GROUND_Y / H) * rect.height;
+              spawnHeartParticle(hx, hy - 40);
+          }
+      }
+
+      drawBackground();
+      drawBoy(boy.x, GROUND_Y, boy);
+      if (SHOW_GIRL) {
+          drawGirl(girl.x, GROUND_Y, girl);
+      }
+  }
+  setInterval(tick, 1000 / FPS);
+  tick();
+
+  // ---- Dialogue typing effect ----
+  var textEl = document.getElementById('dboxText');
+  var arrowEl = document.getElementById('dboxArrow');
+  var dboxArea = document.getElementById('dboxClickArea');
+
+  function typeLine(line) {
+      textEl.textContent = "";
+      arrowEl.style.display = "none";
+      typingComplete = false;
+      var i = 0;
+      var speed = 28;
+      if (typingTimer) clearInterval(typingTimer);
+      typingTimer = setInterval(function () {
+          textEl.textContent += line.charAt(i);
+          i++;
+          if (i >= line.length) {
+              clearInterval(typingTimer);
+              typingTimer = null;
+              typingComplete = true;
+              arrowEl.style.display = "block";
+          }
+      }, speed);
+  }
+
+  function advanceDialogue() {
+      if (!typingComplete) {
+          // Skip typing animation
+          if (typingTimer) clearInterval(typingTimer);
+          typingTimer = null;
+          textEl.textContent = dialogueLines[currentLineIdx];
+          typingComplete = true;
+          arrowEl.style.display = "block";
+          return;
+      }
+      if (currentLineIdx < dialogueLines.length - 1) {
+          currentLineIdx++;
+          typeLine(dialogueLines[currentLineIdx]);
+      }
+  }
+
+  // Show first line if dialogue exists
+  if (dialogueLines && dialogueLines.length > 0) {
+      typeLine(dialogueLines[0]);
+  }
+
+  // Click to advance dialogue
+  if (dboxArea) {
+      dboxArea.addEventListener('click', advanceDialogue);
+  }
+
+  // ---- Expose functions to Python via postMessage ----
+  window.triggerPocketReveal = function() {
+      boy.pocketRevealing = true;
+      boy.pocketItemY = 0;
+      boy.pocketItemScale = 0.3;
+  };
+
+  window.setPose = function(newPose) {
+      POSE = newPose;
+  };
+
+})();
 </script>
-""", unsafe_allow_html=True)
+</body>
+</html>
+"""
+
+
+def render_rpg_scene(
+    pose: str = "idle",
+    dialogue=None,
+    show_heart: bool = False,
+    show_girl: bool = False,
+    scene_w: int = 420,
+    scene_h: int = 260,
+    canvas_w: int = 140,
+    canvas_h: int = 110,
+    scale: int = 3,
+    auto_advance_steps: bool = False,
+) -> None:
+    """Render the RPG scene inside an HTML5 Canvas at 30 FPS.
+
+    Args:
+        pose: "idle" | "walk" | "talk" | "reach" | "celebrate" | "entry" | "hug"
+        dialogue: list of strings or None
+        show_heart: show floating heart above character
+        show_girl: draw the girl character as well
+        scene_w, scene_h: dimensions of the wrapping div
+        canvas_w, canvas_h: internal canvas resolution
+        scale: display multiplier for crisp pixel art
+        auto_advance_steps: whether dialogue auto-advances
+    """
+    if isinstance(dialogue, str):
+        dialogue = [dialogue]
+
+    html = (
+        RPG_SCENE_TEMPLATE
+        .replace("__SCENE_W__", str(scene_w))
+        .replace("__SCENE_H__", str(scene_h))
+        .replace("__CANVAS_W__", str(canvas_w))
+        .replace("__CANVAS_H__", str(canvas_h))
+        .replace("__CANVAS_DISPLAY_W__", str(canvas_w * scale))
+        .replace("__CANVAS_DISPLAY_H__",

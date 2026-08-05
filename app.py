@@ -1,6 +1,3 @@
-I'll upgrade the animation to **60 FPS** and add **3D-like effects** using CSS 3D transforms and enhanced rendering. Here's the complete `app.py`:
-
-```python
 """
 Pikku's Birthday Web App - 60 FPS 3D RPG Edition
 =================================================
@@ -44,11 +41,11 @@ def safe_audio(path):
                 audio_bytes = f.read()
             b64 = base64.b64encode(audio_bytes).decode()
             st.markdown(f'<audio autoplay loop style="display:none;"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>', unsafe_allow_html=True)
-            st.caption("🎵 Music playing...")
+            st.caption("Music playing...")
         except:
-            st.caption("🎵 Add MP3 to assets/bg_music.mp3")
+            st.caption("Add MP3 to assets/bg_music.mp3")
     else:
-        st.caption("🎵 Add song at assets/bg_music.mp3")
+        st.caption("Add song at assets/bg_music.mp3")
 
 
 def safe_video(path, label):
@@ -56,9 +53,9 @@ def safe_video(path, label):
         try:
             st.video(path)
         except:
-            st.info(f"📹 Add video at {path}")
+            st.info(f"Add video at {path}")
     else:
-        st.info(f"📹 Add clip at {path}")
+        st.info(f"Add clip at {path}")
 
 
 def safe_image(path, caption="", use_container_width=True):
@@ -87,7 +84,7 @@ p, span, label, div { color: #7a3b47; }
 .step-dot.done { background: #c44569; color: white; border-color: #c44569; }
 @keyframes pulse { 0%,100% { box-shadow: 0 0 20px rgba(238,156,167,0.6); } 50% { box-shadow: 0 0 35px rgba(238,156,167,0.9); } }
 @keyframes popIn { 0% { transform: scale(0.05) rotateY(180deg); opacity: 0; } 60% { transform: scale(1.08) rotateY(0deg); opacity: 1; } 100% { transform: scale(1) rotateY(0deg); opacity: 1; } }
-.pocket-photo-new { animation: popIn 0.8s cubic-bezier(.2,.9,.3,1.3) forwards; perspective: 1000px; }
+.pocket-photo-new { animation: popIn 0.8s cubic-bezier(.2,.9,.3,1.3) forwards; }
 @keyframes glowPulse { 0%,100% { text-shadow: 0 0 10px rgba(255,107,157,0.3); } 50% { text-shadow: 0 0 30px rgba(255,107,157,0.8), 0 0 60px rgba(255,107,157,0.4); } }
 .glow-text { animation: glowPulse 2s ease-in-out infinite; }
 @keyframes float3D { 0%,100% { transform: translateY(0px) rotateY(0deg); } 25% { transform: translateY(-10px) rotateY(5deg); } 75% { transform: translateY(-5px) rotateY(-5deg); } }
@@ -125,8 +122,6 @@ canvas#c{position:absolute;left:50%;top:8px;transform:translateX(-50%);image-ren
 .fh{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:3;perspective:500px;}
 .hp{position:absolute;font-size:18px;animation:fu 3s ease-out forwards;pointer-events:none;transform-style:preserve-3d;}
 @keyframes fu{0%{transform:translateY(0) scale(0.3) rotateY(0deg);opacity:1;}50%{transform:translateY(-100px) scale(1.2) rotateY(180deg);opacity:0.8;}100%{transform:translateY(-250px) scale(0.5) rotateY(360deg);opacity:0;}}
-.particle{position:absolute;pointer-events:none;z-index:4;animation:sparkle 1.5s ease-out forwards;}
-@keyframes sparkle{0%{transform:scale(1) rotate(0deg);opacity:1;}100%{transform:scale(0) rotate(180deg);opacity:0;}}
 </style></head><body>
 <div class="scene-wrap" id="sceneWrap">
 <canvas id="c" width="CW2" height="CH2"></canvas>
@@ -139,8 +134,8 @@ var cv=document.getElementById('c'),ctx=cv.getContext('2d');
 ctx.imageSmoothingEnabled=false;
 var W=cv.width,H=cv.height,GY=H-22;
 var POSE="PV",SH=SHV,SG=SGV,HP=HPV,DIA=DIAV;
-var boy={x:-20,tx:SG?Math.round(W/2)-20:Math.round(W/2),w:true,lp:0,aw:0,ht:0,mo:false,kf:0,ki:false,scale:1,rotY:0};
-var girl={x:W+40,tx:Math.round(W/2)+20,w:SG,lp:1,aw:0,ht:0,kf:0,ki:false,scale:1,rotY:0};
+var boy={x:-20,tx:SG?Math.round(W/2)-20:Math.round(W/2),w:true,lp:0,aw:0,ht:0,mo:false,kf:0,ki:false};
+var girl={x:W+40,tx:Math.round(W/2)+20,w:SG,lp:1,aw:0,ht:0,kf:0,ki:false};
 var tc=0,dl=DIA||[],cli=0,tt=null,tc2=false,sparkles=[];
 
 function dr(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);}
@@ -175,7 +170,6 @@ function dB(ax,gy,s){
   var ll=0,lr=0;
   if(s.w){ll=s.lp===0?-4:0;lr=s.lp===0?0:-4;}
   else if(POSE==="celebrate"){ll=Math.sin(s.ht)>0?-3:0;lr=Math.sin(s.ht)>0?0:-3;}
-  // 3D legs with gradient
   var lgL=ctx.createLinearGradient(ax-7,ay-16,ax-1,ay);
   lgL.addColorStop(0,'#444466');lgL.addColorStop(1,'#222233');
   ctx.fillStyle=lgL;ctx.fillRect(Math.round(ax-7),Math.round(ay-16+ll),6,16);
@@ -184,7 +178,6 @@ function dB(ax,gy,s){
   lgR.addColorStop(0,'#444466');lgR.addColorStop(1,'#222233');
   ctx.fillStyle=lgR;ctx.fillRect(Math.round(ax+1),Math.round(ay-16+lr),6,16);
   ctx.fillStyle='#22222a';ctx.fillRect(Math.round(ax+1),Math.round(ay-3+lr),6,3);
-  // 3D body
   var bg=ctx.createLinearGradient(ax-9,ay-34,ax+9,ay-14);
   bg.addColorStop(0,'#5fa0e0');bg.addColorStop(0.5,'#4f8ecb');bg.addColorStop(1,'#3a6fa0');
   ctx.fillStyle=bg;ctx.fillRect(Math.round(ax-9),Math.round(ay-34),18,20);
@@ -205,7 +198,6 @@ function dB(ax,gy,s){
     ctx.fillStyle='#ff6f91';ctx.fillRect(px-3,py-3,3,3);ctx.fillRect(px+3,py-3,3,3);ctx.fillRect(px-4,py,10,3);ctx.fillRect(px-1,py+3,5,2);
     if(tc%3===0)addSparkle(px,py-10);
   }
-  // 3D head
   var hg=ctx.createRadialGradient(ax,ay-46,2,ax,ay-42,12);
   hg.addColorStop(0,'#ffe8cc');hg.addColorStop(1,'#ffd9b3');
   ctx.fillStyle=hg;ctx.fillRect(Math.round(ax-8),Math.round(ay-50),16,16);
@@ -261,7 +253,7 @@ function sh(x,y){
 
 function tick(){
   tc++;boy.aw+=0.45;boy.ht+=0.35;girl.aw+=0.42;girl.ht+=0.33;
-  if(POSE==="kiss"){boy.kf++;girl.kf++;if(boy.kf>40){boy.ki=true;girl.ki=true;}}
+  if(POSE==="kiss"){boy.kf++;girl.kf++;if(boy.kf>60){boy.ki=true;girl.ki=true;}}
   if(boy.w){boy.x+=2.4;if(boy.x>=boy.tx){boy.x=boy.tx;boy.w=false;}if(tc%2===0)boy.lp=1-boy.lp;}
   if(girl.w){girl.x-=2.0;if(girl.x<=girl.tx){girl.x=girl.tx;girl.w=false;}if(tc%2===0)girl.lp=1-girl.lp;}
   if(POSE==="talk"&&tc%3===0)boy.mo=!boy.mo;
@@ -269,11 +261,9 @@ function tick(){
     var sw=document.getElementById('sceneWrap');if(sw){var r=sw.getBoundingClientRect();sh((boy.x/W)*r.width,(GY/H)*r.height-40);sh((girl.x/W)*r.width,(GY/H)*r.height-40);}
   }
   ctx.clearRect(0,0,W,H);
-  // 3D sky gradient
   var sky=ctx.createLinearGradient(0,0,0,H*0.55);
   sky.addColorStop(0,'#d4eeff');sky.addColorStop(1,'#a3d5f0');
   ctx.fillStyle=sky;ctx.fillRect(0,0,W,H*0.55);
-  // Clouds with shadow
   ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fillRect(15,10,30,8);ctx.fillRect(20,5,20,6);
   ctx.fillStyle='rgba(255,255,255,0.5)';ctx.fillRect(W-50,18,28,7);ctx.fillRect(W-45,13,18,6);
   dB(boy.x,GY,boy);if(SG)dG(girl.x,GY,girl);
@@ -321,14 +311,14 @@ def step_dots():
 st.markdown('<div class="title-banner"><h1 class="float-3d">🎀 Happy Birthday, Pikku! 🎂</h1></div>', unsafe_allow_html=True)
 step_dots()
 
-# ===== STEP 1 =====
+# STEP 1
 if st.session_state.current_step == 1:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.markdown("### 💬 A Special Visitor Arrives")
     safe_audio(BG_MUSIC_PATH)
     s = st.session_state.step1_stage
     if s == "idle":
-        render_scene(pose="walk", dialogue=["...", "Click the button below to talk to him!"])
+        render_scene(pose="walk", dialogue=["...", "Click below to talk!"])
     elif s == "talking":
         render_scene(pose="talk", dialogue=[GREETING_LINE])
     st.write("")
@@ -340,32 +330,32 @@ if st.session_state.current_step == 1:
                 st.rerun()
     elif s == "talking":
         with c2:
-            if st.button("Next Step ➡️", use_container_width=True, key="b1n"):
+            if st.button("Next ➡️", use_container_width=True, key="b1n"):
                 st.session_state.current_step = 2
                 st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ===== STEP 2 =====
+# STEP 2
 elif st.session_state.current_step == 2:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 🎁 Pocket Photo Surprise!")
+    st.markdown("### 🎁 Pocket Surprise!")
     idx = st.session_state.step2_idx
     total = len(POCKET_PHOTOS)
     done = idx >= total
     if not done:
         ph = POCKET_PHOTOS[idx]
         cap = ph['caption']
-        render_scene(pose="reach", holding_photo=True, dialogue=[f"Photo {idx+1} of {total}: {cap}"])
+        render_scene(pose="reach", holding_photo=True, dialogue=[f"Photo {idx+1}/{total}: {cap}"])
         st.write("")
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
             if idx == 0 and not st.session_state.step2_show:
-                if st.button("🎁 Pull photo from pocket", use_container_width=True, key="bp"):
+                if st.button("🎁 Pull photo", use_container_width=True, key="bp"):
                     st.session_state.step2_show = True
                     st.session_state.step2_just = True
                     st.rerun()
             elif st.session_state.step2_show:
-                lab = "📸 Show Next Photo" if idx < total - 1 else "📸 View Final Photo"
+                lab = "📸 Next Photo" if idx < total - 1 else "📸 Final Photo"
                 if st.button(lab, use_container_width=True, key=f"bn{idx}"):
                     st.session_state.step2_idx += 1
                     st.session_state.step2_just = True
@@ -380,26 +370,41 @@ elif st.session_state.current_step == 2:
             safe_image(ph["path"], cap)
             st.markdown('</div>', unsafe_allow_html=True)
     else:
-        render_scene(pose="celebrate", show_heart=True, dialogue=["That's all the memories!", "What a beautiful collection! 💗"])
+        render_scene(pose="celebrate", show_heart=True, dialogue=["All memories shown!", "Beautiful collection! 💗"])
         st.write("")
-        st.markdown("#### ✨ All Photos Shown! ✨")
+        st.markdown("#### ✨ All Photos ✨")
         cols = st.columns(min(total, 4))
         for i, ph in enumerate(POCKET_PHOTOS):
             with cols[i % len(cols)]:
                 safe_image(ph["path"], ph["caption"])
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
-            if st.button("Proceed to Next Step ➡️", use_container_width=True, key="b2n"):
+            if st.button("Next Step ➡️", use_container_width=True, key="b2n"):
                 st.session_state.current_step = 3
                 st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ===== STEP 3 =====
+# STEP 3
 elif st.session_state.current_step == 3:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.markdown("### 🎬 Cute Videos")
     vc = st.columns(2)
-    for col, path, lab in zip(vc, VIDEO_PATHS, ["Cute Clip 1", "Cute Clip 2"]):
+    for col, path, lab in zip(vc, VIDEO_PATHS, ["Clip 1", "Clip 2"]):
         with col:
             st.markdown(f"**{lab}**")
-            safe_video(path
+            safe_video(path, lab)
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        if st.button("💖 Final Surprise ➡️", use_container_width=True, key="b3n"):
+            st.session_state.current_step = 4
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# STEP 4
+elif st.session_state.current_step == 4:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("### 💕 Grand Finale")
+    ph = st.session_state.step4_phase
+    if ph == "entry":
+        render_scene(pose="hug", show_heart=True, show_girl=True, dialogue=["They walk toward each other...", "Hearts racing! 💓"], scene_w=500, canvas_w=180)
+        st

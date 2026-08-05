@@ -17,12 +17,9 @@ requirements.txt:
 import os
 import json
 import base64
-import time
 
-import requests
 import streamlit as st
 import streamlit.components.v1 as components
-from PIL import Image
 
 # ---------------------------------------------------------------------------
 # PAGE CONFIGURATION
@@ -250,11 +247,8 @@ st.markdown(
 if "current_step" not in st.session_state:
     st.session_state.current_step = 1  # 1 through 5
 
-if "step1_dialogue_stage" not in st.session_state:
-    st.session_state.step1_dialogue_stage = "idle"  # idle | walking | greeting | talking | done
-
-if "step2_viewed" not in st.session_state:
-    st.session_state.step2_viewed = False
+if "step1_stage" not in st.session_state:
+    st.session_state.step1_stage = "idle"  # idle | talking | done
 
 if "step3_pocket_revealed" not in st.session_state:
     st.session_state.step3_pocket_revealed = []
@@ -262,14 +256,9 @@ if "step3_pocket_revealed" not in st.session_state:
 if "step3_just_revealed" not in st.session_state:
     st.session_state.step3_just_revealed = False
 
-if "step4_viewed" not in st.session_state:
-    st.session_state.step4_viewed = False
+if "step5_phase" not in st.session_state:
+    st.session_state.step5_phase = "entry"  # entry | approach | hug | done
 
-if "step5_finale_triggered" not in st.session_state:
-    st.session_state.step5_finale_triggered = False
-
-if "step5_animation_phase" not in st.session_state:
-    st.session_state.step5_animation_phase = "entry"  # entry | approach | hug | kiss | done
 
 # ---------------------------------------------------------------------------
 # RPG SCENE HTML TEMPLATE
@@ -298,7 +287,6 @@ RPG_SCENE_TEMPLATE = r"""
       background: linear-gradient(#bdeaff 0%, #bdeaff 55%, #7fc97f 55%, #7fc97f 100%);
   }
 
-  /* Scrolling ground tile strip */
   .ground-strip {
       position: absolute;
       left: 0; right: 0; bottom: 0;
@@ -330,7 +318,6 @@ RPG_SCENE_TEMPLATE = r"""
       z-index: 2;
   }
 
-  /* RPG dialogue box */
   .dbox-wrap {
       position: absolute;
       left: 6px; right: 6px; bottom: 6px;
@@ -364,7 +351,6 @@ RPG_SCENE_TEMPLATE = r"""
       50%, 100% { opacity: 0; }
   }
 
-  /* Floating hearts */
   .floating-hearts {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -380,12 +366,6 @@ RPG_SCENE_TEMPLATE = r"""
   @keyframes floatUp {
       0%   { transform: translateY(0) scale(0.5); opacity: 1; }
       100% { transform: translateY(-200px) scale(1.5); opacity: 0; }
-  }
-
-  /* Responsive */
-  @media (max-width: 480px) {
-      .scene-wrap { transform: scale(0.85); transform-origin: top center; }
-      .dbox { font-size: 11px; padding: 6px 24px 6px 8px; }
   }
 </style>
 </head>
@@ -411,14 +391,11 @@ RPG_SCENE_TEMPLATE = r"""
   var W = canvas.width, H = canvas.height;
   var GROUND_Y = H - 22;
 
-  // ---- Configuration from Python ----
   var POSE = "__POSE__";
   var SHOW_HEART = __SHOW_HEART__;
   var SHOW_GIRL = __SHOW_GIRL__;
   var DIALOGUE = __DIALOGUE_JSON__;
-  var AUTO_ADVANCE_STEPS = __AUTO_ADVANCE_STEPS__;
 
-  // ---- Colour palette ----
   var C_HAIR   = "#4a2c17";
   var C_HAIR_G = "#8B4513";
   var C_SKIN   = "#ffd9b3";
@@ -433,11 +410,10 @@ RPG_SCENE_TEMPLATE = r"""
   var C_POCKET = "#22314a";
   var C_HEART  = "#ff6f91";
 
-  // ---- State ----
   var boy = {
-      x: POSE === "walk" ? -20 : (SHOW_GIRL ? Math.round(W / 2) - 20 : Math.round(W / 2)),
+      x: -20,
       targetX: SHOW_GIRL ? Math.round(W / 2) - 20 : Math.round(W / 2),
-      walking: (POSE === "walk" || POSE === "entry"),
+      walking: true,
       legPhase: 0,
       armWaveT: 0,
       hopT: 0,
@@ -450,11 +426,10 @@ RPG_SCENE_TEMPLATE = r"""
   var girl = {
       x: W + 40,
       targetX: Math.round(W / 2) + 20,
-      walking: (POSE === "entry" && SHOW_GIRL),
+      walking: SHOW_GIRL,
       legPhase: 1,
       armWaveT: 0,
-      hopT: 0,
-      mouthOpen: false
+      hopT: 0
   };
 
   var tickCounter = 0;
@@ -463,7 +438,6 @@ RPG_SCENE_TEMPLATE = r"""
   var typingTimer = null;
   var typingComplete = false;
 
-  // ---- Drawing helpers ----
   function drawRect(x, y, w, h, color) {
       ctx.fillStyle = color;
       ctx.fillRect(Math.round(x), Math.round(y), w, h);
@@ -478,17 +452,15 @@ RPG_SCENE_TEMPLATE = r"""
       ctx.restore();
   }
 
-  // ---- Draw Boy ----
   function drawBoy(ax, groundY, s) {
       var bob = 0;
       if (POSE === "celebrate") {
           bob = Math.sin(s.hopT) * 3;
-      } else if (!s.walking) {
+      } else if (!s.walking && POSE !== "walk") {
           bob = Math.sin(tickCounter / 12) * 1.2;
       }
       var ay = groundY + bob;
 
-      // Legs
       var liftL = 0, liftR = 0;
       if (s.walking) {
           liftL = s.legPhase === 0 ? -3 : 0;
@@ -502,14 +474,11 @@ RPG_SCENE_TEMPLATE = r"""
       drawRect(ax + 1, ay - 16 + liftR, 6, 16, C_PANTS);
       drawRect(ax + 1, ay - 3 + liftR, 6, 3, C_SHOE);
 
-      // Body
       drawRect(ax - 9, ay - 34, 18, 20, C_SHIRT);
       drawRect(ax - 9, ay - 34, 18, 3, C_SHIRT_DK);
 
-      // Pocket
       drawRect(ax + 3, ay - 20, 5, 5, C_POCKET);
 
-      // Arms
       var armAngleL = 8, armAngleR = -8;
       if (POSE === "talk") {
           armAngleR = -60 + Math.sin(s.armWaveT) * 35;
@@ -528,21 +497,17 @@ RPG_SCENE_TEMPLATE = r"""
       drawArm(ax - 9, ay - 32, armAngleL, C_SHIRT_DK);
       drawArm(ax + 9, ay - 32, armAngleR, C_SHIRT_DK);
 
-      // Head
       drawRect(ax - 8, ay - 50, 16, 16, C_SKIN);
       drawRect(ax - 9, ay - 54, 18, 6, C_HAIR);
       drawRect(ax - 9, ay - 50, 3, 10, C_HAIR);
       drawRect(ax + 6, ay - 50, 3, 10, C_HAIR);
 
-      // Eyes
       drawRect(ax - 5, ay - 42, 2, 2, C_EYE);
       drawRect(ax + 3, ay - 42, 2, 2, C_EYE);
 
-      // Mouth
       var mouthH = (POSE === "talk" && s.mouthOpen) ? 3 : 1;
       drawRect(ax - 3, ay - 37, 6, mouthH, C_MOUTH);
 
-      // Pocket item reveal
       if (s.pocketRevealing) {
           var itemX = ax + 8;
           var itemY = ay - 22 - s.pocketItemY;
@@ -550,13 +515,11 @@ RPG_SCENE_TEMPLATE = r"""
           ctx.save();
           ctx.translate(itemX, itemY);
           ctx.scale(scale, scale);
-          // Small photo card
           ctx.fillStyle = "#fffef5";
           ctx.fillRect(-6, -8, 12, 16);
           ctx.strokeStyle = "#ffb6c1";
           ctx.lineWidth = 1;
           ctx.strokeRect(-6, -8, 12, 16);
-          // Heart on photo
           ctx.fillStyle = C_HEART;
           ctx.fillRect(-2, -2, 2, 2);
           ctx.fillRect(2, -2, 2, 2);
@@ -565,7 +528,6 @@ RPG_SCENE_TEMPLATE = r"""
           ctx.restore();
       }
 
-      // Floating heart above head
       if (SHOW_HEART) {
           var hy = ay - 66 - Math.sin(tickCounter / 10) * 4;
           var hx = ax + 12;
@@ -577,12 +539,10 @@ RPG_SCENE_TEMPLATE = r"""
       }
   }
 
-  // ---- Draw Girl ----
   function drawGirl(ax, groundY, s) {
       var bob = Math.sin(tickCounter / 12) * 1.5;
       var ay = groundY + bob;
 
-      // Legs
       var liftL = 0, liftR = 0;
       if (s.walking) {
           liftL = s.legPhase === 0 ? -3 : 0;
@@ -593,15 +553,12 @@ RPG_SCENE_TEMPLATE = r"""
       drawRect(ax - 5, ay - 2 + liftL, 4, 3, C_DRESS_DK);
       drawRect(ax + 1, ay - 2 + liftR, 4, 3, C_DRESS_DK);
 
-      // Dress
       drawRect(ax - 9, ay - 26, 18, 20, C_DRESS);
       drawRect(ax - 9, ay - 26, 18, 3, C_DRESS_DK);
 
-      // Body/torso
       drawRect(ax - 7, ay - 38, 14, 14, C_DRESS);
       drawRect(ax - 7, ay - 38, 14, 2, C_DRESS_DK);
 
-      // Arms
       var armAngleL = 8, armAngleR = -8;
       if (POSE === "hug") {
           armAngleL = -50;
@@ -613,32 +570,24 @@ RPG_SCENE_TEMPLATE = r"""
       drawArm(ax - 7, ay - 36, armAngleL, C_DRESS_DK);
       drawArm(ax + 7, ay - 36, armAngleR, C_DRESS_DK);
 
-      // Head
       drawRect(ax - 8, ay - 52, 16, 16, C_SKIN);
       drawRect(ax - 9, ay - 56, 18, 7, C_HAIR_G);
-      // Side hair
       drawRect(ax - 9, ay - 52, 3, 10, C_HAIR_G);
       drawRect(ax + 6, ay - 52, 3, 10, C_HAIR_G);
-      // Ponytails
       drawRect(ax - 12, ay - 53, 4, 6, C_HAIR_G);
       drawRect(ax + 8, ay - 53, 4, 6, C_HAIR_G);
 
-      // Eyes (slightly larger)
       drawRect(ax - 5, ay - 44, 3, 3, C_EYE);
       drawRect(ax + 2, ay - 44, 3, 3, C_EYE);
-      // Eyelashes
       drawRect(ax - 6, ay - 46, 1, 2, C_EYE);
       drawRect(ax + 5, ay - 46, 1, 2, C_EYE);
 
-      // Smile
       drawRect(ax - 2, ay - 39, 5, 2, C_MOUTH);
 
-      // Blush
       ctx.fillStyle = "rgba(255,150,150,0.4)";
       ctx.fillRect(ax - 7, ay - 41, 3, 2);
       ctx.fillRect(ax + 4, ay - 41, 3, 2);
 
-      // Floating heart above girl's head
       if (SHOW_HEART) {
           var hy = ay - 68 - Math.sin(tickCounter / 10 + 1) * 3;
           var hx = ax - 8;
@@ -652,7 +601,6 @@ RPG_SCENE_TEMPLATE = r"""
 
   function drawBackground() {
       ctx.clearRect(0, 0, W, H);
-      // A few decorative clouds
       ctx.fillStyle = "rgba(255,255,255,0.5)";
       ctx.fillRect(15, 10, 30, 8);
       ctx.fillRect(20, 5, 20, 6);
@@ -660,13 +608,12 @@ RPG_SCENE_TEMPLATE = r"""
       ctx.fillRect(W - 45, 13, 18, 6);
   }
 
-  // ---- Spawn floating heart particles ----
   function spawnHeartParticle(x, y) {
       var container = document.getElementById('floatingHearts');
       if (!container) return;
       var heart = document.createElement('div');
       heart.className = 'heart-particle';
-      heart.textContent = '💕';
+      heart.textContent = ['💕','💖','💗','💝','✨'][Math.floor(Math.random()*5)];
       heart.style.left = x + 'px';
       heart.style.top = y + 'px';
       container.appendChild(heart);
@@ -675,7 +622,6 @@ RPG_SCENE_TEMPLATE = r"""
       }, 2600);
   }
 
-  // ---- 30 FPS game loop ----
   var FPS = 30;
   function tick() {
       tickCounter++;
@@ -684,25 +630,15 @@ RPG_SCENE_TEMPLATE = r"""
       girl.armWaveT += 0.32;
       girl.hopT += 0.26;
 
-      // Boy walking
       if (boy.walking) {
-          if (POSE === "entry" && SHOW_GIRL) {
-              boy.x += 1.6;
-              if (boy.x >= boy.targetX) {
-                  boy.x = boy.targetX;
-                  boy.walking = false;
-              }
-          } else {
-              boy.x += 2.2;
-              if (boy.x >= boy.targetX) {
-                  boy.x = boy.targetX;
-                  boy.walking = false;
-              }
+          boy.x += 2.2;
+          if (boy.x >= boy.targetX) {
+              boy.x = boy.targetX;
+              boy.walking = false;
           }
           if (tickCounter % 4 === 0) boy.legPhase = 1 - boy.legPhase;
       }
 
-      // Girl walking (from right side)
       if (girl.walking) {
           girl.x -= 1.8;
           if (girl.x <= girl.targetX) {
@@ -712,12 +648,10 @@ RPG_SCENE_TEMPLATE = r"""
           if (tickCounter % 4 === 0) girl.legPhase = 1 - girl.legPhase;
       }
 
-      // Mouth toggling for talk pose
       if (POSE === "talk" && tickCounter % 5 === 0) {
           boy.mouthOpen = !boy.mouthOpen;
       }
 
-      // Pocket reveal animation
       if (boy.pocketRevealing) {
           boy.pocketItemY += 1.2;
           boy.pocketItemScale += 0.04;
@@ -726,7 +660,6 @@ RPG_SCENE_TEMPLATE = r"""
           }
       }
 
-      // Spawn floating hearts periodically for hug/celebrate
       if ((POSE === "hug" || POSE === "celebrate") && tickCounter % 15 === 0) {
           var sceneWrap = document.querySelector('.scene-wrap');
           if (sceneWrap) {
@@ -746,7 +679,6 @@ RPG_SCENE_TEMPLATE = r"""
   setInterval(tick, 1000 / FPS);
   tick();
 
-  // ---- Dialogue typing effect ----
   var textEl = document.getElementById('dboxText');
   var arrowEl = document.getElementById('dboxArrow');
   var dboxArea = document.getElementById('dboxClickArea');
@@ -772,7 +704,6 @@ RPG_SCENE_TEMPLATE = r"""
 
   function advanceDialogue() {
       if (!typingComplete) {
-          // Skip typing animation
           if (typingTimer) clearInterval(typingTimer);
           typingTimer = null;
           textEl.textContent = dialogueLines[currentLineIdx];
@@ -786,25 +717,18 @@ RPG_SCENE_TEMPLATE = r"""
       }
   }
 
-  // Show first line if dialogue exists
   if (dialogueLines && dialogueLines.length > 0) {
       typeLine(dialogueLines[0]);
   }
 
-  // Click to advance dialogue
   if (dboxArea) {
       dboxArea.addEventListener('click', advanceDialogue);
   }
 
-  // ---- Expose functions to Python via postMessage ----
   window.triggerPocketReveal = function() {
       boy.pocketRevealing = true;
       boy.pocketItemY = 0;
       boy.pocketItemScale = 0.3;
-  };
-
-  window.setPose = function(newPose) {
-      POSE = newPose;
   };
 
 })();
@@ -824,20 +748,8 @@ def render_rpg_scene(
     canvas_w: int = 140,
     canvas_h: int = 110,
     scale: int = 3,
-    auto_advance_steps: bool = False,
 ) -> None:
-    """Render the RPG scene inside an HTML5 Canvas at 30 FPS.
-
-    Args:
-        pose: "idle" | "walk" | "talk" | "reach" | "celebrate" | "entry" | "hug"
-        dialogue: list of strings or None
-        show_heart: show floating heart above character
-        show_girl: draw the girl character as well
-        scene_w, scene_h: dimensions of the wrapping div
-        canvas_w, canvas_h: internal canvas resolution
-        scale: display multiplier for crisp pixel art
-        auto_advance_steps: whether dialogue auto-advances
-    """
+    """Render the RPG scene inside an HTML5 Canvas at 30 FPS."""
     if isinstance(dialogue, str):
         dialogue = [dialogue]
 
@@ -848,4 +760,85 @@ def render_rpg_scene(
         .replace("__CANVAS_W__", str(canvas_w))
         .replace("__CANVAS_H__", str(canvas_h))
         .replace("__CANVAS_DISPLAY_W__", str(canvas_w * scale))
-        .replace("__CANVAS_DISPLAY_H__",
+        .replace("__CANVAS_DISPLAY_H__", str(canvas_h * scale))
+        .replace("__POSE__", pose)
+        .replace("__SHOW_HEART__", "true" if show_heart else "false")
+        .replace("__SHOW_GIRL__", "true" if show_girl else "false")
+        .replace("__DIALOGUE_JSON__", json.dumps(dialogue) if dialogue else "null")
+        .replace("__DBOX_DISPLAY__", "block" if dialogue else "none")
+    )
+    components.html(html, height=scene_h + 10, scrolling=False)
+
+
+# ---------------------------------------------------------------------------
+# STEP INDICATOR
+# ---------------------------------------------------------------------------
+def render_step_indicator():
+    """Display the step progress dots."""
+    dots = ""
+    for i in range(1, 6):
+        if i < st.session_state.current_step:
+            cls = "done"
+            icon = "✓"
+        elif i == st.session_state.current_step:
+            cls = "active"
+            icon = str(i)
+        else:
+            cls = ""
+            icon = str(i)
+        dots += f'<div class="step-dot {cls}">{icon}</div>'
+    st.markdown(f'<div class="step-indicator">{dots}</div>', unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# HEADER
+# ---------------------------------------------------------------------------
+st.markdown(
+    '<div class="title-banner"><h1>🎀 Happy Birthday, Pikku! 🎂</h1></div>',
+    unsafe_allow_html=True,
+)
+render_step_indicator()
+
+# ===========================================================================
+# STEP 1 — 2D Animated Boy Entrance & Greeting
+# ===========================================================================
+if st.session_state.current_step == 1:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown("### 💬 Step 1: A Special Visitor Arrives")
+    safe_audio(BG_MUSIC_PATH)
+
+    stage = st.session_state.step1_stage
+
+    if stage == "idle":
+        render_rpg_scene(
+            pose="walk",
+            dialogue=["...", "Click the button below to talk to him!"],
+        )
+    elif stage == "talking":
+        render_rpg_scene(
+            pose="talk",
+            dialogue=[GREETING_LINE],
+        )
+
+    st.write("")
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    if stage == "idle":
+        with col2:
+            if st.button("💬 Talk to him / बात सुनो", use_container_width=True, key="btn_talk"):
+                st.session_state.step1_stage = "talking"
+                st.rerun()
+
+    elif stage == "talking":
+        with col2:
+            if st.button("Next Step ➡️", use_container_width=True, key="btn_step1_next"):
+                st.session_state.current_step = 2
+                st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ===========================================================================
+# STEP 2 — Interactive Story Milestones
+# ===========================================================================
+elif st.session_state.current_step == 2:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True

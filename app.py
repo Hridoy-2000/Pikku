@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import requests
 from streamlit_lottie import st_lottie
@@ -5,7 +6,7 @@ from streamlit_lottie import st_lottie
 # 1. Page Configuration
 st.set_page_config(page_title="Happy Birthday My Love! 💕", page_icon="💖", layout="centered")
 
-# 2. Pink Aesthetic & Custom Styling
+# 2. Custom CSS for Pink Gradient Background & Walking Animation
 st.markdown("""
 <style>
 .stApp {
@@ -36,10 +37,10 @@ st.markdown("""
     border-radius: 25px;
     padding: 18px 25px;
     color: white;
-    font-size: 19px;
+    font-size: 20px;
     font-weight: bold;
     text-align: center;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     box-shadow: 0 6px 15px rgba(255, 105, 180, 0.4);
 }
 .speech-bubble:after {
@@ -54,6 +55,16 @@ st.markdown("""
     border-bottom: 0;
     margin-left: -15px;
 }
+@keyframes walkIn {
+    0% { transform: translateX(-120px); opacity: 0; }
+    100% { transform: translateX(0px); opacity: 1; }
+}
+.character-center {
+    animation: walkIn 1.4s ease-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 h1 {
     color: #c71585 !important;
     text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.8);
@@ -62,14 +73,17 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-# Helper function to load Lottie animations
+# Helper function to load Lottie animations safely
 def load_lottieurl(url: str):
-    r = requests.get(url)
-    return r.json() if r.status_code == 200 else None
+    try:
+        r = requests.get(url)
+        return r.json() if r.status_code == 200 else None
+    except:
+        return None
 
-# Load 2D Character Poses & Animations
-char_idle = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_cK18G1.json")
-char_happy = load_lottieurl("https://assets3.lottiefiles.com/packages/lf20_dn3m9zxb.json")
+# Cute Boy Lottie Animations
+boy_walk = load_lottieurl("https://assets10.lottiefiles.com/packages/lf20_5tl12w66.json")
+boy_talk = load_lottieurl("https://assets4.lottiefiles.com/packages/lf20_tjqksy9c.json")
 lottie_bear = load_lottieurl("https://assets10.lottiefiles.com/packages/lf20_u4yrau.json")
 
 st.title("🎂 Happy Birthday My Love! 💕✨")
@@ -83,42 +97,48 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "💌 5. Thank You"
 ])
 
-# --- TAB 1: 2D RPG Character Dialogue System ---
+# --- TAB 1: Cute Boy Walking & Dialogue ---
 with tab1:
-    if "step" not in st.session_state:
-        st.session_state.step = 0
+    if "boy_step" not in st.session_state:
+        st.session_state.boy_step = 0
 
-    dialogues = [
-        {
-            "anim": char_idle,
-            "text": "Hey there! Ready to start our special birthday quest? 🎮",
-            "options": [("Yes, let's go! ✨", 1), ("Tell me more first! 🤔", 1)]
-        },
-        {
-            "anim": char_happy,
-            "text": "Yay! I created this entire world just for you today! 💕",
-            "options": [("Aww, thank you! ❤️", 2), ("Show me the surprises! 🎁", 2)]
-        },
-        {
-            "anim": char_idle,
-            "text": "Explore all the tabs above to see our memory story, photos, and videos!",
-            "options": [("Restart Story 🔄", 0)]
-        }
-    ]
+    if st.session_state.boy_step == 0:
+        st.markdown('<div class="speech-bubble">"Look who just walked in! Click the button below to talk to him."</div>', unsafe_allow_html=True)
+        st.markdown('<div class="character-center">', unsafe_allow_html=True)
+        if boy_walk:
+            st_lottie(boy_walk, height=240, key="boy_walking")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        if st.button("💬 Talk to him / बात सुनो"):
+            st.session_state.boy_step = 1
+            st.rerun()
 
-    current = dialogues[st.session_state.step]
+    elif st.session_state.boy_step == 1:
+        st.markdown('<div class="speech-bubble">"हाय। हे आई नो योर बर्थडे इस कमिंग एंड आप बहुत खुश हो उसके लिए।"</div>', unsafe_allow_html=True)
+        st.markdown('<div class="character-center">', unsafe_allow_html=True)
+        if boy_talk:
+            st_lottie(boy_talk, height=240, key="boy_talking")
+        elif boy_walk:
+            st_lottie(boy_walk, height=240, key="boy_walking_fallback")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("❤️ Aww! Thank you so much!"):
+                st.session_state.boy_step = 2
+                st.rerun()
+        with col2:
+            if st.button("🔄 Repeat dialogue"):
+                st.session_state.boy_step = 0
+                st.rerun()
 
-    # Speech Bubble & Animated Character
-    st.markdown(f'<div class="speech-bubble">"{current["text"]}"</div>', unsafe_allow_html=True)
-    if current["anim"]:
-        st_lottie(current["anim"], height=220, key=f"rpg_char_{st.session_state.step}")
-
-    # Interactive Choice Buttons
-    st.write("---")
-    cols = st.columns(len(current["options"]))
-    for idx, (label, next_step) in enumerate(current["options"]):
-        if cols[idx].button(label, key=f"btn_{st.session_state.step}_{idx}"):
-            st.session_state.step = next_step
+    elif st.session_state.boy_step == 2:
+        st.markdown('<div class="speech-bubble">"Now explore all the other tabs above to see your memory story, photos, and videos! 🎉"</div>', unsafe_allow_html=True)
+        if boy_talk:
+            st_lottie(boy_talk, height=240, key="boy_happy")
+        
+        if st.button("🔄 Restart Story"):
+            st.session_state.boy_step = 0
             st.rerun()
 
     st.audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
@@ -182,3 +202,5 @@ with tab5:
         st_lottie(lottie_bear, height=200, key="bear")
     st.balloons()
     st.markdown("### You are my favorite person in the entire universe. Happy Birthday! 🎉💖")
+
+```

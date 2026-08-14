@@ -38,12 +38,12 @@ VIDEO_PATHS: List[str] = [
 
 POCKET_PHOTOS: List[Dict[str, str]] = [
     {"path": os.path.join(ASSETS_DIR, "memory1.jpg"), "caption": "My kuchupuchu 💌"},
-    {"path": os.path.join(ASSETS_DIR, "memory2.jpg"), "caption": "That silly joke you made 😂"},
-    {"path": os.path.join(ASSETS_DIR, "memory3.jpg"), "caption": "The moment I knew 💗"},
+    {"path": os.path.join(ASSETS_DIR, "memory2.jpg"), "caption": "My guguluu"},
+    {"path": os.path.join(ASSETS_DIR, "memory3.jpg"), "caption": "Puchukukilu"},
     {"path": os.path.join(ASSETS_DIR, "memory4.jpg"), "caption": "Us, always 🌸"},
 ]
 
-GREETING_LINE: str = "Hi. Hey, I know your birthday is coming and you are very happy for that."
+GREETING_LINE: str = "Hi. Hey, moi janu aji mur pukulu r special din."
 
 CANVAS_WIDTH: int = 420
 CANVAS_HEIGHT: int = 260
@@ -350,7 +350,7 @@ render_step_indicator()
 # ===========================================================================
 if st.session_state.current_step == 1:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 💬 Step 1: A Special Visitor Arrives")
+    st.markdown("### 💬 Step 1: eitu jna kun eituuu tmr shona pakhi")
     safe_audio(BG_MUSIC_PATH)
     
     stage = st.session_state.step1_stage
@@ -380,7 +380,7 @@ if st.session_state.current_step == 1:
 # ===========================================================================
 elif st.session_state.current_step == 2:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 🎁 Step 2: Pocket Photo Surprise!")
+    st.markdown("### 🎁 Step 2: photo hihihi!")
     
     idx = st.session_state.step2_idx
     total = len(POCKET_PHOTOS)
@@ -413,7 +413,7 @@ elif st.session_state.current_step == 2:
             safe_image(photo["path"], photo["caption"])
     else:
         render_scene(pose="celebrate", show_heart=True)
-        render_dialogue("All memories shown! What a beautiful collection! 💗")
+        render_dialogue("usss pucki ussss! 💗")
         
         cols = st.columns(min(total, 4))
         for i, photo in enumerate(POCKET_PHOTOS):
@@ -433,7 +433,7 @@ elif st.session_state.current_step == 2:
 # ===========================================================================
 elif st.session_state.current_step == 3:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("### 🎬 Step 3: Cute Video Messages")
+    st.markdown("### 🎬 Step 3: amiii hihi")
     
     video_cols = st.columns(2)
     labels = ["Cute Clip 1", "Cute Clip 2"]

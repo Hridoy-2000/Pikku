@@ -462,20 +462,20 @@ elif st.session_state.current_step == 4:
     if phase == "entry":
         # Both characters walk in from opposite sides
         render_scene(pose="hug", show_girl=True, show_heart=True)
-        render_dialogue("They walk toward each other... Hearts are racing! 💓")
+        render_dialogue("you are best thing ever happened to meee  aha mur usrt 💓")
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("🤗 Watch Them Hug!", use_container_width=True, key="btn_hug"):
+            if st.button("🤗 yeaiiiii maryyy me baby joldiii", use_container_width=True, key="btn_hug"):
                 st.session_state.step4_phase = "hug"
                 st.rerun()
     
     elif phase == "hug":
         # Hugging animation
         render_scene(pose="hug", show_girl=True, show_heart=True)
-        render_dialogue("They embrace each other tightly... The warmest hug ever! 🤗")
+        render_dialogue("bht miss kriasuuu and love uuuuuuuu 🤗")
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("💋 Now Watch Them Kiss!", use_container_width=True, key="btn_kiss"):
+            if st.button("aha kushot uthai sumu dimmm", use_container_width=True, key="btn_kiss"):
                 st.session_state.step4_phase = "kiss"
                 st.rerun()
     

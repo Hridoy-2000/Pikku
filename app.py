@@ -37,7 +37,7 @@ VIDEO_PATHS: List[str] = [
 ]
 
 POCKET_PHOTOS: List[Dict[str, str]] = [
-    {"path": os.path.join(ASSETS_DIR, "memory1.jpg"), "caption": "The day we first talked 💌"},
+    {"path": os.path.join(ASSETS_DIR, "memory1.jpg"), "caption": "My kuchupuchu 💌"},
     {"path": os.path.join(ASSETS_DIR, "memory2.jpg"), "caption": "That silly joke you made 😂"},
     {"path": os.path.join(ASSETS_DIR, "memory3.jpg"), "caption": "The moment I knew 💗"},
     {"path": os.path.join(ASSETS_DIR, "memory4.jpg"), "caption": "Us, always 🌸"},
